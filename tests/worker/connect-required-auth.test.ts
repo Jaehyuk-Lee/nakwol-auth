@@ -14,7 +14,7 @@ test('Connect v1 is protected by default and supports explicit optional mode', a
   assert.match(src, /await client\.login\(\)/);
   assert.match(src, /access_denied/);
   assert.match(src, /releaseAuthGuard\(\)/);
-  assert.match(src, /version: '1\.3\.0'/);
+  assert.match(src, /version: '1\.4\.0'/);
   assert.match(src, /authMode, authRequired/);
 });
 
