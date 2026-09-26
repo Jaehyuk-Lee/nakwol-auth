@@ -134,11 +134,43 @@
     bodyLock = null;
   };
 
-  if (authRequired) ensureAuthGuard();
+  // 이미 검증된 세션 복원(v1.4): 같은 탭에 유효한 앱 토큰과, 그 토큰으로 /me 검증에 성공한 사용자 캐시가
+  // 함께 있으면 인증 화면 없이 먼저 보여 주고 /me 재검증은 뒤에서 한다. 재검증이 실패하면 즉시 다시 잠근다.
+  // 캐시는 토큰의 expiresAt에 묶여 있어 다른 토큰(새 로그인·만료 후 재발급)에는 쓰이지 않는다.
+  const tokenKey = `nakwol.auth.${clientId}.token`;
+  const verifiedUserKey = `nakwol.auth.${clientId}.connect_verified_user`;
+  const readTokenRecord = () => {
+    try {
+      const record = JSON.parse(window.sessionStorage.getItem(tokenKey) || 'null');
+      return record?.accessToken && record?.expiresAt && Date.now() < record.expiresAt ? record : null;
+    } catch { return null; }
+  };
+  const readVerifiedUser = () => {
+    const record = readTokenRecord();
+    if (!record) return null;
+    try {
+      const cached = JSON.parse(window.sessionStorage.getItem(verifiedUserKey) || 'null');
+      return cached?.user && cached.tokenExpiresAt === record.expiresAt ? cached.user : null;
+    } catch { return null; }
+  };
+  const rememberVerifiedUser = (user) => {
+    const record = readTokenRecord();
+    try {
+      if (user && record) window.sessionStorage.setItem(verifiedUserKey, JSON.stringify({ user, tokenExpiresAt: record.expiresAt }));
+      else window.sessionStorage.removeItem(verifiedUserKey);
+    } catch {}
+  };
+  const restoredUser = authRequired ? readVerifiedUser() : null;
+
+  if (authRequired && !restoredUser) ensureAuthGuard();
+  if (restoredUser) {
+    window.NAKWOL_AUTH_USER = restoredUser;
+    dispatch('nakwol-session-restored', restoredUser);
+  }
 
   const start = async () => {
     try {
-      if (authRequired) ensureAuthGuard();
+      if (authRequired && !restoredUser) ensureAuthGuard();
       const sdk = await import(`${authOrigin}/sdk/v0.3.0/nakwol-auth-web.js`);
       const client = new sdk.NakwolAuthClient({ clientId, redirectUri, authOrigin, autoSso });
       activeClient = client;
@@ -245,7 +277,7 @@
         },
       };
       const api = {
-        version: '1.3.0', clientId, redirectUri, authOrigin, authMode, authRequired, autoSso, client, data, user: null,
+        version: '1.4.0', clientId, redirectUri, authOrigin, authMode, authRequired, autoSso, client, data, user: null, restoredUser,
         login: () => client.login(), logout: (options = {}) => client.logout(options), getMe: () => client.getMe(),
         isAuthenticated: () => client.isAuthenticated(), isMember: () => client.isMember(),
       };
@@ -254,6 +286,7 @@
       window.NAKWOL_DATA = data;
       client.addEventListener('user', (event) => {
         api.user = event.detail || null;
+        rememberVerifiedUser(api.user);
         window.NAKWOL_AUTH_USER = api.user;
         if (api.user && authRequired) releaseAuthGuard();
         dispatch('nakwol-ready', api.user);
@@ -261,12 +294,14 @@
       });
       client.addEventListener('logout', () => {
         api.user = null;
+        rememberVerifiedUser(null);
         delete window.NAKWOL_AUTH_USER;
         if (authRequired) setAuthGuardState('loggedout');
         dispatch('nakwol-logout', null);
         dispatch('nakwol-auth-logout', null);
       });
       client.addEventListener('error', (event) => {
+        rememberVerifiedUser(null);
         if (authRequired) setAuthGuardState('error', event.detail || null);
         dispatch('nakwol-error', event.detail || null);
       });
@@ -296,6 +331,7 @@
       dispatch('nakwol-ready', api.user);
       dispatch('nakwol-auth-ready', api.user);
     } catch (error) {
+      rememberVerifiedUser(null);
       if (authRequired) setAuthGuardState('error', error);
       console.error('[NAKWOL Connect] bootstrap failed', error);
       dispatch('nakwol-error', error);
