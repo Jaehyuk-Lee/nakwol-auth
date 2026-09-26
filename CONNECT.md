@@ -93,6 +93,25 @@ window.NAKWOL_CONNECT.data
 
 Web SDK stable은 `0.3.0`입니다. Universal Embed는 automatic SSO를 기본으로 사용합니다.
 
+### 검증된 세션 복원 (Embed v1.4)
+
+`auth=required`에서도 같은 탭에 **유효한 앱 토큰**과 **그 토큰으로 `/me` 검증에 성공한 사용자 기록**이 함께 있으면, 인증 화면 없이 페이지를 먼저 보여 줍니다.
+
+- 페이지를 새로고침하거나 정적 사이트에서 다른 페이지로 이동할 때 매번 뜨던 "NAKWOL 인증 확인 중…" 화면이 사라집니다.
+- `/me` 재검증은 매 로드마다 뒤에서 그대로 실행합니다. 토큰 만료·맹원 자격 상실·오류가 확인되면 즉시 다시 잠그고 로그인 흐름으로 보냅니다.
+- 사용자 기록은 토큰의 만료 시각에 묶여 있어 다른 토큰에는 쓰이지 않습니다. 로그아웃·오류 시 삭제됩니다.
+- 새 탭은 `sessionStorage`가 비어 있으므로 기존처럼 인증 화면을 거칩니다(중앙 SSO가 있으면 자동 인증).
+
+이벤트:
+
+```js
+window.addEventListener('nakwol-session-restored', (e) => { /* e.detail: 복원한 사용자, 재검증 전 */ });
+window.addEventListener('nakwol-ready', (e) => { /* e.detail: /me로 검증된 사용자 또는 null */ });
+window.addEventListener('nakwol-logout', () => {});
+```
+
+`nakwol-session-restored`는 화면 표시용 신호입니다. 권한 판단은 `nakwol-ready` 이후 값이나 DATA Worker 응답을 기준으로 합니다.
+
 ## LLM/코딩 에이전트 규칙
 
 에이전트에게 연동을 맡길 때 다음 원칙을 고정합니다.
