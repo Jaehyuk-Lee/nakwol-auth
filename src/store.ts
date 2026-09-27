@@ -2,7 +2,10 @@ import { randomToken, safeEqual, sha256Base64Url } from './crypto';
 import type { DiscordUser, Env, MembershipRow, SessionRow, UserRow } from './types';
 import { discordAvatarUrl, fetchDiscordIdentity, resolveNakwolRole } from './discord';
 
-const SESSION_TTL_MS = 60 * 60 * 1000;
+// 중앙 로그인 세션: 마지막 사용 후 10일까지 유지(쓸 때마다 연장), 로그인 시점부터 최대 30일.
+// 맹원 자격은 앱 토큰(1시간)을 새로 발급할 때마다 다시 확인하므로 세션 기간과 권한 회수는 분리된다.
+export const SESSION_IDLE_TTL_MS = 10 * 24 * 60 * 60 * 1000;
+export const SESSION_ABSOLUTE_TTL_MS = 30 * 24 * 60 * 60 * 1000;
 const AUTH_CODE_TTL_MS = 2 * 60 * 1000;
 const ACCESS_TOKEN_TTL_MS = 60 * 60 * 1000;
 
@@ -11,22 +14,29 @@ export async function findSessionUser(env: Env, rawToken: string | undefined): P
   const hash = await sha256Base64Url(rawToken);
   const now = Date.now();
   const row = await env.DB.prepare(
-    `SELECT user_id, expires_at FROM auth_sessions WHERE token_hash = ? AND expires_at > ?`
-  ).bind(hash, now).first<SessionRow>();
+    `SELECT user_id, expires_at, created_at FROM auth_sessions WHERE token_hash = ? AND expires_at > ? AND created_at > ?`
+  ).bind(hash, now, now - SESSION_ABSOLUTE_TTL_MS).first<SessionRow & { created_at: number }>();
   if (!row) return null;
-  await env.DB.prepare(`UPDATE auth_sessions SET last_used_at = ? WHERE token_hash = ?`).bind(now, hash).run();
+  const expiresAt = sessionExpiry(Number(row.created_at), now);
+  await env.DB.prepare(`UPDATE auth_sessions SET last_used_at = ?, expires_at = ? WHERE token_hash = ?`).bind(now, expiresAt, hash).run();
   return row.user_id;
+}
+
+/** 사용 시점 기준 10일 뒤, 단 로그인 시점 기준 30일을 넘지 않는다. */
+export function sessionExpiry(createdAt: number, now: number): number {
+  return Math.min(now + SESSION_IDLE_TTL_MS, createdAt + SESSION_ABSOLUTE_TTL_MS);
 }
 
 export async function createSession(env: Env, userId: string): Promise<{ token: string; maxAgeSeconds: number }> {
   const token = randomToken(32);
   const hash = await sha256Base64Url(token);
   const now = Date.now();
-  const expiresAt = now + SESSION_TTL_MS;
+  const expiresAt = sessionExpiry(now, now);
   await env.DB.prepare(
     `INSERT INTO auth_sessions(token_hash, user_id, expires_at, created_at, last_used_at) VALUES (?, ?, ?, ?, ?)`
   ).bind(hash, userId, expiresAt, now, now).run();
-  return { token, maxAgeSeconds: Math.floor(SESSION_TTL_MS / 1000) };
+  // 쿠키는 최대 기간(30일)만큼 두고, 실제 만료(10일 비활동)는 서버의 expires_at이 판단한다.
+  return { token, maxAgeSeconds: Math.floor(SESSION_ABSOLUTE_TTL_MS / 1000) };
 }
 
 export async function deleteSession(env: Env, rawToken: string | undefined): Promise<void> {
