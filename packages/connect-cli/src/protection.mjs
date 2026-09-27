@@ -7,7 +7,8 @@ import { installIntegration } from './integration.mjs';
 
 export const WRANGLER_FILE = 'wrangler.nakwol.json';
 const GENERATED = '.nakwol/server';
-const hash = value => createHash('sha256').update(value).digest('hex');
+// Git may convert generated text to CRLF on Windows; line endings are not a gate change.
+const hash = value => createHash('sha256').update(value.toString().replaceAll('\r\n', '\n')).digest('hex');
 
 export function siteUrl(value) {
   const url = new URL(value);

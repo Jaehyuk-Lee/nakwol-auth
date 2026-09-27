@@ -36,6 +36,9 @@ test('installer preserves existing files, rejects unsafe assets and provides ver
   assert.equal(wrangler.assets.binding, 'ASSETS');
   assert.equal(wrangler.preview_urls, false);
   assert.equal((await inspectProtection(root, await readProjectConfig(root))).ok, true);
+  const generatedPath=join(root,'.nakwol/server/gate.mjs');
+  await writeFile(generatedPath,(await readFile(generatedPath,'utf8')).replaceAll('\r\n','\n').replaceAll('\n','\r\n'));
+  assert.equal((await inspectProtection(root, await readProjectConfig(root))).ok,true,'Windows Git line endings preserve protection integrity');
   await installProtection(options(root));
   const source = await readFile(join(root,'index.html'),'utf8');
   assert.match(source, /data-server-gate="true"/);
