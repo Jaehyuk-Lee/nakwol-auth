@@ -2,6 +2,7 @@ export interface Env {
   DB: D1Database;
   DISCORD_CLIENT_ID: string;
   DISCORD_CLIENT_SECRET: string;
+  DISCORD_BOT_TOKEN?: string;
   NAKWOL_GUILD_ID: string;
   NAKWOL_MEMBER_ROLE_ID?: string;
   NAKWOL_ADMIN_ROLE_ID?: string;

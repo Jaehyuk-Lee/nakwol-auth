@@ -7,6 +7,7 @@ import { registerConnectDeveloperAdminRoutes } from './connect-admin-developers'
 import { registerConnectCliDistributionRoutes } from './connect-cli-distribution';
 import { registerAccountRoutes } from './account';
 import { registerLabRoutes } from './lab';
+import { registerRoleAdminRoutes } from './role-admin';
 
 registerSdkRoutes(app);
 registerConnectRoutes(app);
@@ -16,5 +17,6 @@ registerConnectDeveloperAdminRoutes(app);
 registerConnectCliDistributionRoutes(app);
 registerAccountRoutes(app);
 registerLabRoutes(app);
+registerRoleAdminRoutes(app);
 
 export default app;

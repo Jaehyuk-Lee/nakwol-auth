@@ -25,7 +25,7 @@ access_policy = member
 - 중앙 세션이 없으면 페이지를 잠근 상태에서 로그인 흐름을 시작합니다.
 - 로그인했지만 낙월 맹원이 아니면 `access_denied`로 페이지를 계속 잠급니다.
 - 설정이 누락되거나 잘못된 앱 정책도 안전하게 `member`로 판정합니다.
-- 공개 서비스는 개발자가 명시적으로 `optional` / `public`을 선택해야 합니다.
+- 공개 서비스는 개발자가 명시적으로 `optional` / `guest`를 선택해야 합니다.
 
 ## 가장 빠른 설치
 
@@ -55,10 +55,10 @@ npx --yes nakwol-connect doctor --json
 정말 공개 페이지가 필요한 경우에만 명시적으로 완화합니다.
 
 ```bash
-npx --yes nakwol-connect init --auth optional --access-policy public
+npx --yes nakwol-connect init --auth optional --access-policy guest
 ```
 
-`--auth optional`은 **페이지를 로그인 없이 보여줄 수 있는가**, `--access-policy public`은 **로그인한 사용자 중 비맹원도 앱 토큰을 받을 수 있는가**를 뜻합니다. 서로 다른 설정입니다.
+`--auth optional`은 **페이지를 로그인 없이 보여줄 수 있는가**, `--access-policy guest`는 **Discord에 로그인한 비맹원도 앱 토큰을 받을 수 있는가**를 뜻합니다. 서로 다른 설정입니다. 접근 정책은 `guest`(Discord 로그인 사용자), `member`(낙월 맹원, 기본값), `admin`(AUTH 운영자) 중 선택합니다. 기존 `public` 설정값은 `guest`로 해석됩니다.
 
 ## Universal Embed
 
@@ -111,7 +111,7 @@ NAKWOL Connect의 npm 패키지는 `nakwol-connect`이고 프로젝트 루트에
 - 로그인했지만 낙월 맹원이 아니면 페이지를 공개하지 말고 access denied 처리
 
 따라서 일반적인 설치는 `npx --yes nakwol-connect init`을 사용한다.
-`--auth optional` 또는 `--access-policy public`은 내가 이 서비스가 공개 서비스라고 명시적으로 요청한 경우에만 사용한다. 임의로 보안을 완화하지 마.
+`--auth optional` 또는 `--access-policy guest`는 내가 이 서비스가 공개 서비스라고 명시적으로 요청한 경우에만 사용한다. 임의로 보안을 완화하지 마.
 
 현재 서비스의 실제 production URL을 callback으로 정확히 등록해. 기존 NAKWOL Connect 연동이 있다면 별도 OAuth 구현을 추가하지 말고 공식 Connect 방식으로 정리해.
 

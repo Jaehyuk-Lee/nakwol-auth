@@ -19,11 +19,12 @@ test('DATA Ops uses a dedicated internal AUTH application with exact admin polic
 test('AUTH admin policy uses explicit platform operators, never Discord membership admin or Lab developer privilege', async () => {
   const policy = await root('src/policy.ts');
   assert.match(policy, /ApplicationAccessPolicy\s*=.*'admin'/s);
-  assert.match(policy, /if \(policy === 'member'\) return Boolean\(user\.membership\?\.is_member\)/);
+  assert.match(policy, /await fetchCurrentGuildMember\(env, identity\.provider_user_id\)/);
+  assert.doesNotMatch(policy, /return Boolean\(user\.membership\?\.is_member\)/);
   assert.match(policy, /FROM auth_operators/);
   assert.match(policy, /isPlatformAdmin/);
   assert.doesNotMatch(policy, /membership\?\.role\s*===\s*'admin'/);
-  assert.match(policy, /if \(policy === 'lab'\)[\s\S]*getAuthLabPrivilege/);
+  assert.match(policy, /case 'lab':[\s\S]*getAuthLabPrivilege/);
 });
 
 test('platform admin authority migration preserves legacy operators and removes Discord admin semantics', async () => {
