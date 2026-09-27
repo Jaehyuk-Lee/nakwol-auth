@@ -14,6 +14,7 @@ try {
     cwd: packageDir,
     encoding: 'utf8',
     stdio: ['ignore', 'pipe', 'inherit'],
+    shell: process.platform === 'win32',
   });
   if (result.status !== 0) throw new Error(`npm pack failed (${result.status})`);
   const payload = JSON.parse(result.stdout || '[]');
