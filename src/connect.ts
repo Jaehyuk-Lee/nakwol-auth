@@ -67,6 +67,7 @@ function adminPage(): string {
 <header>
   <div class="brand"><div class="mark">落</div><div><b>NAKWOL Connect</b><small>앱 등록 · 설치 가이드 · 연동 진단</small></div></div>
   <div id="auth-area"></div>
+  <a href="/admin/roles">역할 관리</a>
 </header>
 <main>
   <section id="gate-area" hidden></section>
@@ -86,7 +87,7 @@ function adminPage(): string {
             <div class="field full"><label>서비스 주소</label><input name="homepage_url" required type="url" placeholder="https://example.pages.dev/"></div>
             <div class="field full"><label>Redirect URI</label><textarea name="redirect_uris" required placeholder="https://example.pages.dev/\nhttps://preview.example.dev/"></textarea><small>한 줄에 하나. 로그인 후 돌아올 정확한 URL입니다.</small></div>
             <div class="field"><label>개발 환경</label><select name="framework"><option value="vite">Vite</option><option value="react">React</option><option value="vue">Vue</option><option value="cra">Create React App</option><option value="next_app">Next.js App Router</option><option value="next_pages">Next.js Pages Router</option><option value="sveltekit">SvelteKit</option><option value="html">일반 HTML</option><option value="other">기타</option></select></div>
-            <div class="field"><label>접근 정책</label><select name="access_policy"><option value="member">낙월 맹원 이상</option><option value="admin">AUTH 관리자만</option><option value="guest">Discord 로그인 사용자</option></select></div>
+            <div class="field"><label>접근 정책</label><select name="access_policy"><option value="member">시즌3 맹원만</option><option value="admin">AUTH 관리자만</option><option value="guest">Discord 로그인 사용자</option></select></div>
             <div class="field"><label>상태</label><select name="status"><option value="active">active</option><option value="disabled">disabled</option></select></div>
           </div>
           <div class="actions"><button id="reset-app" class="ghost" type="button">되돌리기</button><button id="save-app" class="primary" type="submit">저장</button></div>

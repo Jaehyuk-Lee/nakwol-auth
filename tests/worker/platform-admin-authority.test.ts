@@ -7,7 +7,7 @@ import type { Env } from '../../src/types';
 const root = (path:string) => readFile(new URL(`../../${path}`, import.meta.url), 'utf8');
 
 const env = {
-  NAKWOL_MEMBER_ROLE_ID: 'discord-member',
+  NAKWOL_MEMBER_ROLE_ID: '1553600098661957643',
   // Historical deployments may still carry this variable. It must have no
   // authority after the platform-admin split.
   NAKWOL_ADMIN_ROLE_ID: 'discord-admin',
@@ -16,8 +16,8 @@ const env = {
 test('Discord roles can prove membership but can never grant NAKWOL platform admin', () => {
   assert.equal(resolveNakwolRole(env, null), 'user');
   assert.equal(resolveNakwolRole(env, { roles:['discord-admin'] }), 'user');
-  assert.equal(resolveNakwolRole(env, { roles:['discord-member'] }), 'member');
-  assert.equal(resolveNakwolRole(env, { roles:['discord-member','discord-admin'] }), 'member');
+  assert.equal(resolveNakwolRole(env, { roles:['1553600098661957643'] }), 'member');
+  assert.equal(resolveNakwolRole(env, { roles:['1553600098661957643','discord-admin'] }), 'member');
 });
 
 test('DATA Ops does not reinterpret membership role after exact AUTH admin-policy verification', async () => {

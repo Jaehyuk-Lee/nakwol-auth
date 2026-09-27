@@ -280,6 +280,7 @@
         version: '1.4.0', clientId, redirectUri, authOrigin, authMode, authRequired, autoSso, client, data, user: null, restoredUser,
         login: () => client.login(), logout: (options = {}) => client.logout(options), getMe: () => client.getMe(),
         isAuthenticated: () => client.isAuthenticated(), isMember: () => client.isMember(),
+        getAccessToken: () => client.getAccessToken(),
       };
       window.NAKWOL_CONNECT = api;
       window.NAKWOL_AUTH = client;

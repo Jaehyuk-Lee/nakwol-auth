@@ -41,10 +41,10 @@ test('guest policy and stored public alias resolve to guest', async () => {
   assert.equal(await getApplicationAccessPolicy(envWithPolicy('lab'), 'lab-app'), 'lab');
 });
 
-test('guest requires an active Discord login while member still requires membership', async () => {
+test('guest requires an active login and cached membership alone cannot authorize member access', async () => {
   assert.equal(await isApplicationAccessAllowed(envWithPolicy('guest'), 'user-1', 'guest-app'), true);
   assert.equal(await isApplicationAccessAllowed(envWithPolicy('public'), 'user-1', 'legacy-app'), true);
   assert.equal(await isApplicationAccessAllowed(envWithPolicy('guest', 'disabled'), 'user-1', 'guest-app'), false);
   assert.equal(await isApplicationAccessAllowed(envWithPolicy('member'), 'user-1', 'member-app'), false);
-  assert.equal(await isApplicationAccessAllowed(envWithPolicy('member', 'active', 'member'), 'user-1', 'member-app'), true);
+  assert.equal(await isApplicationAccessAllowed(envWithPolicy('member', 'active', 'member'), 'user-1', 'member-app'), false);
 });

@@ -3,6 +3,10 @@
   "name": "nakwol-auth",
   "main": "src/sdk-entry.ts",
   "compatibility_date": "2026-08-24",
+  "vars": {
+    "NAKWOL_GUILD_ID": "1493410906456064112",
+    "NAKWOL_MEMBER_ROLE_ID": "1553600098661957643"
+  },
   "rules": [
     {
       "type": "Text",

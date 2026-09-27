@@ -90,8 +90,13 @@ required 모드의 흐름:
 window.NAKWOL_CONNECT.user
 window.NAKWOL_CONNECT.login()
 window.NAKWOL_CONNECT.logout()
+window.NAKWOL_CONNECT.getAccessToken()
 window.NAKWOL_CONNECT.data
 ```
+
+`getAccessToken()`은 현재 앱의 유효한 토큰 또는 `null`을 반환합니다. 서버 게이트의 세션 교환에 사용하며 토큰을 URL이나 로그에 넣지 않습니다.
+
+`member`는 시즌3 역할 보유자만 허용합니다. `/admin/roles`에서 사이트별 추가 역할을 관리합니다. Embed의 화면 잠금만으로는 HTML·데이터 직접 접근을 막지 못하므로 보호 사이트는 서버에서 매 요청을 검사해야 합니다. [서버 접근 제어 계약과 운영 설정](docs/SERVER_GATED_AUTH.md)을 참고하세요.
 
 Web SDK stable은 `0.3.0`입니다. Universal Embed는 automatic SSO를 기본으로 사용합니다.
 
