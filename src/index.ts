@@ -115,13 +115,17 @@ app.get('/authorize', async (c) => {
   const sid = parseCookies(c.req.header('Cookie')).nakwol_sid;
   const sessionUserId = await findSessionUser(c.env, sid);
   if (sessionUserId) {
-    if (!await isApplicationAccessAllowed(c.env, sessionUserId, clientId)) {
-      await logAuthEvent(c.env, 'authorize.access_denied', sessionUserId, clientId);
+    if (await isApplicationAccessAllowed(c.env, sessionUserId, clientId)) {
+      const code = await createAuthorizationCode(c.env, sessionUserId, clientId, redirectUri, codeChallenge);
+      await logAuthEvent(c.env, prompt === 'none' ? 'authorize.sso_auto' : 'authorize.sso', sessionUserId, clientId);
+      return c.redirect(redirectWithParams(redirectUri, { code, state: clientState }), 302);
+    }
+    await logAuthEvent(c.env, 'authorize.access_denied', sessionUserId, clientId, { reverify: prompt !== 'none' });
+    if (prompt === 'none') {
       return c.redirect(redirectWithParams(redirectUri, { error: 'access_denied', state: clientState }), 302);
     }
-    const code = await createAuthorizationCode(c.env, sessionUserId, clientId, redirectUri, codeChallenge);
-    await logAuthEvent(c.env, prompt === 'none' ? 'authorize.sso_auto' : 'authorize.sso', sessionUserId, clientId);
-    return c.redirect(redirectWithParams(redirectUri, { code, state: clientState }), 302);
+    // 저장된 역할은 마지막 Discord 로그인 시점 값이다. 역할을 새로 받은 사용자가
+    // 세션 때문에 계속 거절되지 않도록, 직접 로그인할 때는 Discord에서 역할을 다시 읽는다.
   }
 
   if (prompt === 'none') {
