@@ -12,6 +12,7 @@ type MembershipState = {
   role: Role;
   status: 'active' | 'inactive';
   checked_at: number;
+  role_ids: string;
 };
 
 function createV8Env() {
@@ -20,7 +21,6 @@ function createV8Env() {
   const env = {
     NAKWOL_GUILD_ID: '1493410906456064112',
     NAKWOL_MEMBER_ROLE_ID: '1553600098661957643',
-    DISCORD_BOT_TOKEN: 'test-bot',
     NAKWOL_ADMIN_ROLE_ID: 'role-admin',
     DISCORD_CLIENT_ID: 'discord-client',
     DISCORD_CLIENT_SECRET: 'discord-secret',
@@ -48,6 +48,7 @@ function createV8Env() {
                     status: 'active',
                   };
                 }
+                if (sql.includes('SELECT role_ids FROM memberships')) return membership;
                 if (sql.includes('SELECT user_id, guild_id, is_guild_member, role, status, checked_at FROM memberships')) {
                   return membership;
                 }
@@ -62,6 +63,7 @@ function createV8Env() {
                     role: args[3] as Role,
                     status: args[4] as 'active' | 'inactive',
                     checked_at: Number(args[5]),
+                    role_ids: String(args[6]),
                   };
                 }
                 return { success: true };
@@ -109,7 +111,7 @@ test('V8 refreshes Discord member -> user -> member and access policy follows th
         avatar: null,
       }), { status: 200, headers: { 'content-type': 'application/json' } });
     }
-    if (url.includes('/users/@me/guilds/1493410906456064112/member') || url.includes('/guilds/1493410906456064112/members/1493410906456064113')) {
+    if (url.includes('/users/@me/guilds/1493410906456064112/member')) {
       return new Response(JSON.stringify({ nick: 'V8 Tester', roles }), {
         status: 200,
         headers: { 'content-type': 'application/json' },
