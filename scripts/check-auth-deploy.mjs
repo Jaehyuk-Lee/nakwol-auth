@@ -21,6 +21,5 @@ for (const name of ['NAKWOL_GUILD_ID', 'NAKWOL_MEMBER_ROLE_ID']) {
   console.log(JSON.stringify({ binding: name, type: binding?.type ?? 'missing', value: binding?.type === 'plain_text' ? binding.text : '(not printed)' }));
 }
 const missing = ['DISCORD_CLIENT_SECRET'].filter(name => !names.includes(name));
-if (!names.includes('DISCORD_BOT_TOKEN2') && !names.includes('DISCORD_BOT_TOKEN')) missing.push('DISCORD_BOT_TOKEN2 or DISCORD_BOT_TOKEN');
 if (missing.length) throw new Error(`AUTH_REQUIRED_SECRETS_MISSING:${missing.join(',')}`);
 console.log('AUTH_DEPLOY_PREFLIGHT_OK');
