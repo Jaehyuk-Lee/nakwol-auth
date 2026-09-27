@@ -17,11 +17,12 @@ async function requireOperator(c: Context<{ Bindings: Env }>): Promise<{ userId:
 }
 
 export async function fetchRoleCatalog(env: Env): Promise<readonly Role[]> {
-  if (!env.DISCORD_BOT_TOKEN || !/^[0-9]{17,20}$/.test(env.NAKWOL_GUILD_ID)) throw new RoleCatalogError('Discord 봇 토큰과 서버 설정이 필요합니다.');
+  const botToken = env.DISCORD_BOT_TOKEN2 || env.DISCORD_BOT_TOKEN;
+  if (!botToken || !/^[0-9]{17,20}$/.test(env.NAKWOL_GUILD_ID)) throw new RoleCatalogError('Discord 봇 토큰과 서버 설정이 필요합니다.');
   let data: unknown;
   try {
     const response = await fetch(`https://discord.com/api/v10/guilds/${env.NAKWOL_GUILD_ID}/roles`, {
-      headers: { Authorization: `Bot ${env.DISCORD_BOT_TOKEN}` },
+      headers: { Authorization: `Bot ${botToken}` },
       signal: AbortSignal.timeout(10000),
       redirect: 'error',
     });
