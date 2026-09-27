@@ -6,6 +6,8 @@ import { ConnectApi } from './api.mjs';
 import { ConnectDataApi } from './data-api.mjs';
 import { validateDataOpenApi } from './discovery.mjs';
 import { DEFAULT_DATA_ORIGIN, parseDataScopes, sameScopes } from './scopes.mjs';
+import { inspectProtection } from './protection.mjs';
+import { verifyProtection } from './protection-verify.mjs';
 
 export const DEFAULT_AUTH_ORIGIN = 'https://nakwol-auth.sepsd21.workers.dev';
 export { DEFAULT_DATA_ORIGIN };
@@ -47,7 +49,8 @@ function desiredIntegration(existingConfig, options = {}) {
   const dataOrigin = String(options.dataOrigin || existingConfig?.dataOrigin || DEFAULT_DATA_ORIGIN).replace(/\/$/, '');
   const dataScopes = options.scopes !== undefined ? parseDataScopes(options.scopes) : parseDataScopes(existingConfig?.dataScopes || []);
   const authMode = options.authMode !== undefined ? normalizeAuthMode(options.authMode) : normalizeAuthMode(existingConfig?.authMode || 'required');
-  return { dataOrigin, dataScopes, authMode };
+  if (existingConfig?.protection && authMode === 'optional') throw new Error('서버 보호가 설치된 사이트는 optional 전환 전에 배포 구조를 검토해야 합니다.');
+  return { dataOrigin, dataScopes, authMode, serverGate: Boolean(existingConfig?.protection), siteUrl:existingConfig?.protection?.siteUrl };
 }
 
 async function resolveApp(root, project, existingConfig, api, options) {
@@ -99,11 +102,15 @@ export async function initProject(options = {}) {
     framework: project.framework,
     redirectUris: app.redirect_uris,
     integration: install.integration,
+    accessPolicy: app.access_policy,
+    authOrigin,
+    ...(existingConfig?.protection ? { protection: existingConfig.protection } : {}),
     ...desired,
   });
-  const doctor = await doctorProject({ ...options, root, authOrigin, dataOrigin: desired.dataOrigin, offline: false });
+  const doctor = await doctorProject({ ...options, url: undefined, connectionOnly: true, root, authOrigin, dataOrigin: desired.dataOrigin, offline: false });
   if (!doctor.ok) throw new Error(`Connect 설치 검증 실패: ${doctor.checks.filter((c) => !c.ok).map((c) => c.name).join(', ')}`);
-  output(`NAKWOL Connect + DATA 연결 완료: ${app.client_id} (${config.authMode})`);
+  output(`NAKWOL Connect + DATA 연결 완료: ${app.client_id} (${config.authMode}). 서버 보호: ${doctor.protectionStatus}.`);
+  if (config.authMode === 'required') output('HTML/파일 직접 접근 차단은 protect install → 배포 → protect verify가 필요합니다. Embed 검사 통과는 보호 완료가 아닙니다.');
   return { clientId: app.client_id, project, config, app, data: dataState, doctor };
 }
 
@@ -134,9 +141,9 @@ export async function doctorProject(options = {}) {
       try {
         const api = new ConnectApi({ authOrigin, accessToken:session.accessToken, fetchImpl });
         const app = (await api.getApp(config.clientId)).data;
-        checks.push({ name:'central_app', ok:Boolean(app?.client_id), detail:app?.status || 'not found' });
+        checks.push({ name:'central_app', ok:Boolean(app?.client_id) && app.status === 'active', detail:app?.status || 'not found' });
         checks.push({ name:'redirects', ok:(config.redirectUris || []).every((uri) => app.redirect_uris.includes(uri)), detail:`${app.redirect_uris.length} registered` });
-        const requestedPolicy = normalizeAccessPolicy(options.accessPolicy);
+        const requestedPolicy = normalizeAccessPolicy(options.accessPolicy || config.accessPolicy);
         if (requestedPolicy) checks.push({ name:'central_access_policy', ok:(app.access_policy === 'public' ? 'guest' : app.access_policy) === requestedPolicy, detail:app.access_policy || 'missing' });
       } catch (error) { checks.push({ name:'central_app', ok:false, detail:error.message }); }
       if (config.version === 2) {
@@ -153,7 +160,13 @@ export async function doctorProject(options = {}) {
       }
     }
   }
-  return { ok:checks.every((item) => item.ok), checks, config, project, marker };
+  const protection = await inspectProtection(root, config);
+  if (config?.protection || (config?.authMode === 'required' && !options.connectionOnly)) checks.push({ name:'server_gate', ok:protection.ok, detail:protection.detail });
+  const blocking = options.url && !options.offline ? await verifyProtection({ ...options, root }) : null;
+  if (blocking) checks.push(...blocking.checks);
+  return { ok:checks.every((item) => item.ok), checks, config, project, marker,
+    protectionStatus: blocking?.protectionStatus || (protection.ok ? 'configured-not-verified' : 'unprotected'),
+    protection: blocking || protection };
 }
 
 export async function statusProject(options = {}) {
@@ -202,8 +215,8 @@ export async function syncProject(options = {}) {
   }
   const dataState = (await dataApi.setScopes(config.clientId, desired.dataScopes)).data;
   const install = await installIntegration(root, project, config.clientId, desired);
-  const updated = await writeProjectConfig(root, { ...config, framework:project.framework, redirectUris:app.redirect_uris, integration:install.integration, ...desired });
-  const doctor = await doctorProject({ ...options, root, dataOrigin:desired.dataOrigin, offline:false });
+  const updated = await writeProjectConfig(root, { ...config, accessPolicy:app.access_policy, framework:project.framework, redirectUris:app.redirect_uris, integration:install.integration, ...desired });
+  const doctor = await doctorProject({ ...options, url:undefined, connectionOnly:true, root, dataOrigin:desired.dataOrigin, offline:false });
   return { ok:doctor.ok, clientId:config.clientId, config:updated, data:dataState, changedFiles:install.changedFiles, doctor };
 }
 
@@ -225,6 +238,8 @@ export async function dataSetProject(scopes, options = {}) {
     authMode: normalizeAuthMode(ctx.config.authMode || 'required'),
     dataOrigin:String(options.dataOrigin || ctx.config.dataOrigin || DEFAULT_DATA_ORIGIN).replace(/\/$/,''),
     dataScopes:parseDataScopes(scopes),
+    serverGate:Boolean(ctx.config.protection),
+    siteUrl:ctx.config.protection?.siteUrl,
   };
   const dataState = (await ctx.dataApi.setScopes(ctx.config.clientId, desired.dataScopes)).data;
   const install = await installIntegration(ctx.root, ctx.project, ctx.config.clientId, desired);
@@ -247,6 +262,7 @@ export async function removeProject(options = {}) {
   const root = options.root || process.cwd();
   const project = await detectProject(root);
   const config = await readProjectConfig(root);
+  if (config?.protection) throw new Error('서버 보호가 설치된 프로젝트입니다. remove로 보호 설정을 지우지 않습니다. 공개 전환은 배포 설정과 보호 파일을 별도로 검토하세요.');
   const removed = await removeIntegration(root, project);
   await removeProjectConfig(root);
   return { ok:true, clientId:config?.clientId || null, changedFiles:removed.changedFiles, centralAppPreserved:true, centralDataPreserved:true };

@@ -2,13 +2,16 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 
-test('Connect v0.5 package, distribution and protected agent guidance stay aligned', async () => {
+test('Connect v0.6 package, distribution and protected agent guidance stay aligned', async () => {
   const pkg = JSON.parse(await readFile(new URL('../../packages/connect-cli/package.json', import.meta.url), 'utf8'));
   const dist = await readFile(new URL('../../src/connect-cli-distribution.ts', import.meta.url), 'utf8');
   const publish = await readFile(new URL('../../.github/workflows/publish-npm.yml', import.meta.url), 'utf8');
 
-  assert.equal(pkg.version, '0.5.0');
-  assert.match(dist, /CONNECT_CLI_VERSION = '0\.5\.0'/);
+  assert.equal(pkg.version, '0.6.0');
+  assert.match(dist, /CONNECT_CLI_VERSION = '0\.6\.0'/);
+  assert.match(dist, /embed_is_server_protection:false/);
+  assert.match(dist, /protect verify/);
+  assert.match(dist, /SERVER_PROTECTION_GUIDANCE \+/);
   assert.match(dist, /default_auth:'required'/);
   assert.match(dist, /default_access_policy:'member'/);
   assert.match(dist, /npm_public_command:'npx --yes nakwol-connect init --auth optional --access-policy guest'/);
