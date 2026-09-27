@@ -6,7 +6,7 @@ import type { Env } from './types';
 
 const ADMIN_CLIENT_ID = 'nakwol-connect-admin';
 const FRAMEWORKS = new Set(['html', 'vite', 'react', 'vue', 'cra', 'sveltekit', 'next_app', 'next_pages', 'other', 'internal']);
-const ACCESS_POLICIES = new Set(['public', 'member', 'admin']);
+const ACCESS_POLICIES = new Set(['guest', 'member', 'admin', 'public']);
 const APP_STATUSES = new Set(['active', 'disabled']);
 
 type ConnectApp = {
@@ -67,6 +67,7 @@ function adminPage(): string {
 <header>
   <div class="brand"><div class="mark">落</div><div><b>NAKWOL Connect</b><small>앱 등록 · 설치 가이드 · 연동 진단</small></div></div>
   <div id="auth-area"></div>
+  <a href="/admin/roles">역할 관리</a>
 </header>
 <main>
   <section id="gate-area" hidden></section>
@@ -86,7 +87,7 @@ function adminPage(): string {
             <div class="field full"><label>서비스 주소</label><input name="homepage_url" required type="url" placeholder="https://example.pages.dev/"></div>
             <div class="field full"><label>Redirect URI</label><textarea name="redirect_uris" required placeholder="https://example.pages.dev/\nhttps://preview.example.dev/"></textarea><small>한 줄에 하나. 로그인 후 돌아올 정확한 URL입니다.</small></div>
             <div class="field"><label>개발 환경</label><select name="framework"><option value="vite">Vite</option><option value="react">React</option><option value="vue">Vue</option><option value="cra">Create React App</option><option value="next_app">Next.js App Router</option><option value="next_pages">Next.js Pages Router</option><option value="sveltekit">SvelteKit</option><option value="html">일반 HTML</option><option value="other">기타</option></select></div>
-            <div class="field"><label>접근 정책</label><select name="access_policy"><option value="member">낙월 맹원 이상</option><option value="public">누구나 로그인</option><option value="admin">관리자만</option></select></div>
+            <div class="field"><label>접근 정책</label><select name="access_policy"><option value="member">시즌3 맹원만</option><option value="admin">AUTH 관리자만</option><option value="guest">Discord 로그인 사용자</option></select></div>
             <div class="field"><label>상태</label><select name="status"><option value="active">active</option><option value="disabled">disabled</option></select></div>
           </div>
           <div class="actions"><button id="reset-app" class="ghost" type="button">되돌리기</button><button id="save-app" class="primary" type="submit">저장</button></div>
@@ -149,7 +150,7 @@ function appFromRow(row: any): ConnectApp {
     status: row.status,
     homepage_url: row.homepage_url ?? null,
     framework: row.framework ?? 'other',
-    access_policy: row.access_policy ?? 'member',
+    access_policy: row.access_policy === 'public' ? 'guest' : row.access_policy ?? 'member',
     owner_user_id: row.owner_user_id ?? null,
     created_at: row.created_at == null ? null : Number(row.created_at),
     updated_at: row.updated_at == null ? null : Number(row.updated_at),
@@ -181,7 +182,7 @@ function normalizeAppInput(raw: any, clientIdOverride?: string): { value?: any; 
   const homepageUrl = String(raw?.homepage_url || '').trim();
   const redirectUris = Array.isArray(raw?.redirect_uris) ? raw.redirect_uris.map((item: unknown) => String(item).trim()).filter(Boolean) : [];
   const framework = String(raw?.framework || 'other');
-  const accessPolicy = String(raw?.access_policy || 'member');
+  const requestedAccessPolicy = String(raw?.access_policy || 'member');
   const status = String(raw?.status || 'active');
 
   if (!name || name.length > 100) return { error: '앱 이름은 1~100자여야 합니다.' };
@@ -189,9 +190,10 @@ function normalizeAppInput(raw: any, clientIdOverride?: string): { value?: any; 
   if (!homepageUrl || !validHttpUrl(homepageUrl)) return { error: '유효한 서비스 주소(HTTPS)가 필요합니다.' };
   if (redirectUris.length < 1 || redirectUris.length > 10 || redirectUris.some((uri: string) => !validHttpUrl(uri))) return { error: 'Redirect URI를 1~10개 입력하고 HTTPS URL 형식을 확인하세요.' };
   if (!FRAMEWORKS.has(framework)) return { error: '지원하지 않는 개발 환경입니다.' };
-  if (!ACCESS_POLICIES.has(accessPolicy)) return { error: '지원하지 않는 접근 정책입니다.' };
+  if (!ACCESS_POLICIES.has(requestedAccessPolicy)) return { error: '지원하지 않는 접근 정책입니다.' };
   if (!APP_STATUSES.has(status)) return { error: '지원하지 않는 앱 상태입니다.' };
 
+  const accessPolicy = requestedAccessPolicy === 'public' ? 'guest' : requestedAccessPolicy;
   return { value: { name, clientId, homepageUrl, redirectUris: [...new Set(redirectUris)], framework, accessPolicy, status } };
 }
 

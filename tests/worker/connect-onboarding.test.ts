@@ -22,7 +22,7 @@ test('onboarding teaches protected-by-default AUTH, Connect and DATA paths', () 
   assert.match(html, /data-auto-sso="false"/);
   assert.match(html, /mountNakwolIdentityMenu/);
   assert.match(html, /data-auth="optional"/);
-  assert.match(html, /테스트 페이지, 정적 사이트, Cloudflare Pages라는 이유만으로 optional\/public을 추론하지 마/);
+  assert.match(html, /테스트 페이지, 정적 사이트, Cloudflare Pages라는 이유만으로 optional\/guest를 추론하지 마/);
   assert.match(html, /설치된 Embed\/설정에서 auth=required이고 access policy=member인지 직접 확인/);
   assert.match(html, /https:\/\/github\.com\/goyoung2\/nakwol-auth/);
   assert.match(html, /nakwol-connect data describe --json/);

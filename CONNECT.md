@@ -36,10 +36,10 @@ npx --yes nakwol-connect doctor --json
 공개 서비스는 예외입니다. 공개가 제품 요구사항일 때만 다음처럼 명시합니다.
 
 ```bash
-npx --yes nakwol-connect init --auth optional --access-policy public
+npx --yes nakwol-connect init --auth optional --access-policy guest
 ```
 
-코딩 에이전트는 사용자 지시 없이 `optional` 또는 `public`으로 완화하면 안 됩니다.
+코딩 에이전트는 사용자 지시 없이 `optional` 또는 `guest`로 완화하면 안 됩니다.
 
 ## Universal Embed
 
@@ -82,7 +82,7 @@ required 모드의 흐름:
 </script>
 ```
 
-`data-auth="optional"`은 페이지 공개 여부만 바꿉니다. 비맹원에게 앱 권한까지 주려면 중앙 앱 정책도 명시적으로 `public`이어야 합니다.
+`data-auth="optional"`은 페이지 공개 여부만 바꿉니다. 비맹원에게 앱 권한까지 주려면 중앙 앱 정책도 명시적으로 `guest`여야 합니다. `guest`는 Discord 로그인 사용자만 앱 토큰을 받는 정책이며, 기존 `public` 설정값은 같은 정책으로 해석됩니다.
 
 ## 브라우저 API
 
@@ -90,8 +90,13 @@ required 모드의 흐름:
 window.NAKWOL_CONNECT.user
 window.NAKWOL_CONNECT.login()
 window.NAKWOL_CONNECT.logout()
+window.NAKWOL_CONNECT.getAccessToken()
 window.NAKWOL_CONNECT.data
 ```
+
+`getAccessToken()`은 현재 앱의 유효한 토큰 또는 `null`을 반환합니다. 서버 게이트의 세션 교환에 사용하며 토큰을 URL이나 로그에 넣지 않습니다.
+
+`member`는 시즌3 역할 보유자만 허용합니다. `/admin/roles`에서 사이트별 추가 역할을 관리합니다. Embed의 화면 잠금만으로는 HTML·데이터 직접 접근을 막지 못하므로 보호 사이트는 서버에서 매 요청을 검사해야 합니다. [서버 접근 제어 계약과 운영 설정](docs/SERVER_GATED_AUTH.md)을 참고하세요.
 
 Web SDK stable은 `0.3.0`입니다. Universal Embed는 automatic SSO를 기본으로 사용합니다.
 
@@ -123,7 +128,7 @@ window.addEventListener('nakwol-logout', () => {});
 Discord OAuth/PKCE를 직접 구현하지 않는다.
 기본 설치는 `npx --yes nakwol-connect init`이다.
 사용자가 공개 서비스라고 명시하지 않는 한 auth=required, access_policy=member를 유지한다.
-`--auth optional`과 `--access-policy public`을 임의로 사용하지 않는다.
+`--auth optional`과 `--access-policy guest`를 임의로 사용하지 않는다.
 production callback URL을 exact URL로 등록한다.
 비밀값을 브라우저/저장소에 넣지 않는다.
 DATA는 필요한 scope만 요청하고 live OpenAPI로 계약을 확인한다.

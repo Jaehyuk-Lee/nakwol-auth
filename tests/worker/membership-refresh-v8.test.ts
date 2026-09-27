@@ -18,8 +18,9 @@ function createV8Env() {
   let membership: MembershipState | null = null;
 
   const env = {
-    NAKWOL_GUILD_ID: 'guild-v8',
-    NAKWOL_MEMBER_ROLE_ID: 'role-member',
+    NAKWOL_GUILD_ID: '1493410906456064112',
+    NAKWOL_MEMBER_ROLE_ID: '1553600098661957643',
+    DISCORD_BOT_TOKEN: 'test-bot',
     NAKWOL_ADMIN_ROLE_ID: 'role-admin',
     DISCORD_CLIENT_ID: 'discord-client',
     DISCORD_CLIENT_SECRET: 'discord-secret',
@@ -30,6 +31,9 @@ function createV8Env() {
           bind(...args: unknown[]) {
             return {
               async first() {
+                if (sql.includes("SELECT provider_user_id FROM auth_identities")) {
+                  return { provider_user_id: '1493410906456064113' };
+                }
                 if (sql.includes("FROM auth_identities WHERE provider = 'discord'")) {
                   return { user_id: 'usr_v8' };
                 }
@@ -93,19 +97,19 @@ test('V8 refreshes Discord member -> user -> member and access policy follows th
 
   const { env, membership } = createV8Env();
   const originalFetch = globalThis.fetch;
-  let roles = ['role-member'];
+  let roles = ['1553600098661957643'];
 
   globalThis.fetch = async (input: string | URL | Request) => {
     const url = String(input);
     if (url.endsWith('/users/@me')) {
       return new Response(JSON.stringify({
-        id: 'discord-v8',
+        id: '1493410906456064113',
         username: 'v8-user',
         global_name: 'V8 Tester',
         avatar: null,
       }), { status: 200, headers: { 'content-type': 'application/json' } });
     }
-    if (url.includes('/users/@me/guilds/guild-v8/member')) {
+    if (url.includes('/users/@me/guilds/1493410906456064112/member') || url.includes('/guilds/1493410906456064112/members/1493410906456064113')) {
       return new Response(JSON.stringify({ nick: 'V8 Tester', roles }), {
         status: 200,
         headers: { 'content-type': 'application/json' },
@@ -130,7 +134,7 @@ test('V8 refreshes Discord member -> user -> member and access policy follows th
     assert.equal(membership()?.status, 'inactive');
     assert.equal(await isApplicationAccessAllowed(env, 'usr_v8', 'siege-calculator'), false);
 
-    roles = ['role-member'];
+    roles = ['1553600098661957643'];
     const restored = await refreshDiscordMembership(env, 'discord-token-v8');
     assert.equal(restored.role, 'member');
     assert.equal(membership()?.role, 'member');

@@ -33,12 +33,12 @@ test('Connect public manifest and admin fallback advertise the same protected de
   assert.match(routes, /sdk:\s*'\/sdk\/v0\.3\.0\/nakwol-auth-web\.js'/);
   assert.match(routes, /default_auth:\s*'required'/);
   assert.match(routes, /default_access_policy:\s*'member'/);
-  assert.match(routes, /access_policy:\s*row\.access_policy \?\? 'member'/);
+  assert.match(routes, /row\.access_policy === 'public' \? 'guest' : row\.access_policy \?\? 'member'/);
   assert.doesNotMatch(routes, /access_policy:\s*row\.access_policy \?\? 'public'/);
 
   assert.match(cliGuide, /NAKWOL Connect CLI v0\.5/);
   assert.match(cliGuide, /auth\s*=\s*required/);
   assert.match(cliGuide, /access_policy\s*=\s*member/);
   assert.match(cliGuide, /테스트 페이지, 정적 사이트, Cloudflare Pages라는 이유만으로 공개 서비스라고 판단하지 않습니다/);
-  assert.match(cliGuide, /--auth optional --access-policy public/);
+  assert.match(cliGuide, /--auth optional --access-policy guest/);
 });

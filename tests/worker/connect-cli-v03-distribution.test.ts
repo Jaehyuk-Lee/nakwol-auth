@@ -11,9 +11,9 @@ test('Connect v0.5 package, distribution and protected agent guidance stay align
   assert.match(dist, /CONNECT_CLI_VERSION = '0\.5\.0'/);
   assert.match(dist, /default_auth:'required'/);
   assert.match(dist, /default_access_policy:'member'/);
-  assert.match(dist, /npm_public_command:'npx --yes nakwol-connect init --auth optional --access-policy public'/);
+  assert.match(dist, /npm_public_command:'npx --yes nakwol-connect init --auth optional --access-policy guest'/);
   assert.match(dist, /Unless the user explicitly says the service is public/);
-  assert.match(dist, /Never infer optional\/public from the fact that the site is static, a demo, a test page, or hosted on Cloudflare Pages/);
+  assert.match(dist, /Never infer optional\/guest from the fact that the site is static, a demo, a test page, or hosted on Cloudflare Pages/);
   assert.match(dist, /confirm the installed state is auth=required and access_policy=member/);
   assert.match(dist, /init --scopes roster:read,decks:read/);
   assert.match(dist, /data describe --json/);

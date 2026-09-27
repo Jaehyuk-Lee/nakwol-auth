@@ -59,7 +59,7 @@ async function readApp(env: Env, clientId: string) {
     status: row.status,
     homepage_url: row.homepage_url ?? null,
     framework: row.framework ?? 'other',
-    access_policy: row.access_policy ?? 'member',
+    access_policy: row.access_policy === 'public' ? 'guest' : row.access_policy ?? 'member',
     owner_user_ids: await ownerIds(env, clientId),
     created_at: row.created_at == null ? null : Number(row.created_at),
     updated_at: row.updated_at == null ? null : Number(row.updated_at),
@@ -105,8 +105,9 @@ export function registerConnectCliAppRoutes(app: Hono<{ Bindings: Env }>): void 
 
     const name = String(body.name || '').trim();
     if (!name || name.length > 100) return c.json({ ok: false, error: { code: 'INVALID_APP_NAME', message: '앱 이름은 1~100자여야 합니다.' } }, 400);
-    const accessPolicy = String(body.access_policy || 'member');
-    if (!canRequestAccessPolicy(principal.isOperator, accessPolicy)) return c.json({ ok: false, error: { code: 'ACCESS_POLICY_DENIED', message: '이 접근 정책을 사용할 권한이 없습니다.' } }, 403);
+    const requestedAccessPolicy = String(body.access_policy || 'member');
+    if (!canRequestAccessPolicy(principal.isOperator, requestedAccessPolicy)) return c.json({ ok: false, error: { code: 'ACCESS_POLICY_DENIED', message: '이 접근 정책을 사용할 권한이 없습니다.' } }, 403);
+    const accessPolicy = requestedAccessPolicy === 'public' ? 'guest' : requestedAccessPolicy;
     const redirects = validateRedirectList(body.redirect_uris);
     if (!redirects.values) return c.json({ ok: false, error: { code: 'INVALID_REDIRECT_URI', message: redirects.error } }, 400);
 
@@ -151,9 +152,10 @@ export function registerConnectCliAppRoutes(app: Hono<{ Bindings: Env }>): void 
     const body: { name?: string; homepage_url?: string | null; framework?: string; access_policy?: string; status?: string } = await c.req.json().catch(() => ({} as any));
     const current = access.app!;
     const name = body.name == null ? current.name : String(body.name).trim();
-    const policy = body.access_policy == null ? current.access_policy : String(body.access_policy);
+    const requestedPolicy = body.access_policy == null ? current.access_policy : String(body.access_policy);
     if (!name || name.length > 100) return c.json({ ok: false, error: { code: 'INVALID_APP_NAME', message: '앱 이름은 1~100자여야 합니다.' } }, 400);
-    if (!canRequestAccessPolicy(principal.isOperator, policy)) return c.json({ ok: false, error: { code: 'ACCESS_POLICY_DENIED', message: '이 접근 정책을 사용할 권한이 없습니다.' } }, 403);
+    if (!canRequestAccessPolicy(principal.isOperator, requestedPolicy)) return c.json({ ok: false, error: { code: 'ACCESS_POLICY_DENIED', message: '이 접근 정책을 사용할 권한이 없습니다.' } }, 403);
+    const policy = requestedPolicy === 'public' ? 'guest' : requestedPolicy;
     const framework = body.framework == null ? current.framework : validFramework(String(body.framework));
     const status = resolveAppStatus(current.status, body.status);
     const homepage = body.homepage_url === undefined ? current.homepage_url : body.homepage_url == null ? null : String(body.homepage_url).trim() || null;

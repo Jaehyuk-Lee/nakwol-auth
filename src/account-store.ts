@@ -34,7 +34,7 @@ export function toConnectedServiceSummary(row: ConnectedServiceRow): ConnectedSe
 
 export async function listConnectedServices(env: Env, userId: string): Promise<ConnectedServiceSummary[]> {
   const result = await env.DB.prepare(
-    `SELECT a.client_id,a.name,s.homepage_url,COALESCE(s.access_policy,'public') AS access_policy,MAX(e.created_at) AS last_authorized_at
+    `SELECT a.client_id,a.name,s.homepage_url,COALESCE(s.access_policy,'member') AS access_policy,MAX(e.created_at) AS last_authorized_at
      FROM auth_events e
      JOIN applications a ON a.client_id=e.client_id
      LEFT JOIN application_settings s ON s.client_id=a.client_id

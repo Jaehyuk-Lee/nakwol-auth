@@ -23,7 +23,7 @@ npx --yes nakwol-connect doctor --json
 테스트 페이지, 정적 사이트, Cloudflare Pages라는 이유만으로 공개 서비스라고 판단하지 않습니다. 공개가 제품 요구사항일 때만 개발자가 명시적으로 완화합니다.
 
 ```bash
-npx --yes nakwol-connect init --auth optional --access-policy public
+npx --yes nakwol-connect init --auth optional --access-policy guest
 ```
 
 ## LLM/코딩 에이전트에게 시키는 말
@@ -43,7 +43,7 @@ Discord OAuth나 PKCE를 직접 구현하지 말고 공식 CLI와 Universal Embe
 - 중앙 세션이 없으면 로그인 흐름으로 이동
 - 로그인한 비맹원은 access denied
 
-테스트 페이지나 정적 Cloudflare Pages라는 이유로 --auth optional 또는 --access-policy public을 임의로 쓰지 마.
+테스트 페이지나 정적 Cloudflare Pages라는 이유로 --auth optional 또는 --access-policy guest를 임의로 쓰지 마.
 공개 서비스라고 내가 명시한 경우에만 보안을 완화해.
 
 현재 서비스의 실제 production URL을 exact callback으로 등록해.
@@ -77,12 +77,12 @@ npx --yes nakwol-connect doctor --json
 auth=required   인증 전 페이지 잠금. 기본값
 auth=optional   로그인 없이 페이지 표시
 
+access-policy=guest    Discord 로그인 사용자 모두 앱 사용
 access-policy=member   낙월 맹원만 앱 사용. 기본값
-access-policy=public   인증된 비맹원도 앱 사용 가능
-access-policy=admin    NAKWOL 플랫폼 관리자만
+access-policy=admin    NAKWOL AUTH 운영자만
 ```
 
-두 설정은 독립적입니다. 페이지 자체를 공개하려면 `optional`, 비맹원에게 앱 권한까지 주려면 `public`을 각각 명시해야 합니다.
+두 설정은 독립적입니다. 페이지 자체를 공개하려면 `optional`, 비맹원에게 앱 권한까지 주려면 `guest`를 각각 명시해야 합니다. 기존 `public` 정책값은 `guest`로 해석됩니다.
 
 ## 프로젝트 상태
 
