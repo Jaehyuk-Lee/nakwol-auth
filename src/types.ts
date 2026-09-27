@@ -3,6 +3,7 @@ export interface Env {
   DISCORD_CLIENT_ID: string;
   DISCORD_CLIENT_SECRET: string;
   DISCORD_BOT_TOKEN?: string;
+  DISCORD_BOT_TOKEN2?: string;
   NAKWOL_GUILD_ID: string;
   NAKWOL_MEMBER_ROLE_ID?: string;
   NAKWOL_ADMIN_ROLE_ID?: string;
