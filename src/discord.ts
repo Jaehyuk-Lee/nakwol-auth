@@ -70,20 +70,21 @@ export function resolveNakwolRole(env: Env, member: DiscordGuildMember | null): 
 }
 
 export class DiscordMembershipUnavailable extends Error {
-  constructor() {
-    super('DISCORD_MEMBERSHIP_UNAVAILABLE');
+  constructor(readonly httpStatus?: number) {
+    super(`DISCORD_MEMBERSHIP_UNAVAILABLE${httpStatus ? ` (HTTP ${httpStatus})` : ''}`);
     this.name = 'DiscordMembershipUnavailable';
   }
 }
 
 /** No positive cache: each authorization observes Discord's current membership. */
 export async function fetchCurrentGuildMember(env: Env, discordUserId: string): Promise<DiscordGuildMember | null> {
-  if (!env.DISCORD_BOT_TOKEN || !/^\d{17,20}$/.test(env.NAKWOL_GUILD_ID)
+  const botToken = env.DISCORD_BOT_TOKEN2 || env.DISCORD_BOT_TOKEN;
+  if (!botToken || !/^\d{17,20}$/.test(env.NAKWOL_GUILD_ID)
       || !/^\d{17,20}$/.test(discordUserId)) throw new DiscordMembershipUnavailable();
   let response: Response;
   try {
     response = await fetch(`${DISCORD_API}/guilds/${env.NAKWOL_GUILD_ID}/members/${discordUserId}`, {
-      headers: { Authorization: `Bot ${env.DISCORD_BOT_TOKEN}`, 'Cache-Control': 'no-cache' },
+      headers: { Authorization: `Bot ${botToken}`, 'Cache-Control': 'no-cache' },
       signal: AbortSignal.timeout(5000),
       redirect: 'error',
     });
@@ -92,7 +93,7 @@ export async function fetchCurrentGuildMember(env: Env, discordUserId: string): 
     throw error;
   }
   if (response.status === 404) return null;
-  if (!response.ok) throw new DiscordMembershipUnavailable();
+  if (!response.ok) throw new DiscordMembershipUnavailable(response.status);
   const member: unknown = await response.json();
   if (typeof member !== 'object' || member === null || !('roles' in member)
       || !Array.isArray(member.roles)
