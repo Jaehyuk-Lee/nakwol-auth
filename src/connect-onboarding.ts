@@ -40,7 +40,7 @@ npx --yes nakwol-connect doctor --json</pre><div class="muted">이 명령 자체
     <div class="step"><div class="num">3</div><div><strong>DATA도 필요하면 필요한 scope만 추가합니다.</strong><pre>npx --yes nakwol-connect init --scopes roster:read,decks:read
 npx --yes nakwol-connect data describe --json
 npx --yes nakwol-connect doctor --json</pre></div></div>
-    <div class="step"><div class="num">4</div><div><strong>공개 서비스일 때만 명시적으로 완화합니다.</strong><pre>npx --yes nakwol-connect init --auth optional --access-policy public</pre><div class="muted"><code>optional</code>/<code>public</code>은 기본값이 아닙니다. 제품 요구사항이 공개 서비스일 때만 사용합니다.</div></div></div>
+    <div class="step"><div class="num">4</div><div><strong>공개 서비스일 때만 명시적으로 완화합니다.</strong><pre>npx --yes nakwol-connect init --auth optional --access-policy guest</pre><div class="muted"><code>optional</code>/<code>guest</code>는 기본값이 아닙니다. 제품 요구사항이 공개 서비스일 때만 사용합니다.</div></div></div>
     <div class="callout">최초 한 서비스에서 Discord 로그인을 완료하면 중앙 NAKWOL SSO 세션이 생깁니다. 같은 브라우저의 다른 required NAKWOL Connect 서비스는 로그인 버튼을 다시 누르지 않고 자동으로 자기 서비스용 access token을 발급받습니다.</div>
   </section>
 
@@ -61,8 +61,8 @@ Discord OAuth나 PKCE를 직접 구현하지 말고 반드시 공식 CLI와 Univ
 - 로그인했지만 낙월 맹원이 아니면 페이지를 공개하지 말고 access denied 처리
 
 일반적인 설치는 npx --yes nakwol-connect init 을 사용한다.
---auth optional 또는 --access-policy public은 내가 공개 서비스라고 명시적으로 요청한 경우에만 사용한다.
-테스트 페이지, 정적 사이트, Cloudflare Pages라는 이유만으로 optional/public을 추론하지 마.
+--auth optional 또는 --access-policy guest는 내가 공개 서비스라고 명시적으로 요청한 경우에만 사용한다.
+테스트 페이지, 정적 사이트, Cloudflare Pages라는 이유만으로 optional/guest를 추론하지 마.
 
 현재 서비스의 실제 production URL을 exact callback으로 등록해.
 기존 NAKWOL Connect 연동이 있다면 별도 OAuth 구현을 추가하지 말고 공식 Connect 방식으로 정리해.
@@ -74,7 +74,7 @@ npx --yes nakwol-connect data describe --json 으로 현재 계약을 먼저 확
 작업이 끝나면 반드시 npx --yes nakwol-connect doctor --json 을 실행해.
 마지막으로 설치된 Embed/설정에서 auth=required이고 access policy=member인지 직접 확인해서 보고해.
 검증이 다르면 성공이라고 보고하지 말고 먼저 수정해.</pre>
-    <p class="muted">공개 서비스가 목적일 때만 위 지시문에 “이 서비스는 공개 서비스이며 optional/public으로 설치해”라고 명시적으로 추가합니다.</p>
+    <p class="muted">공개 서비스가 목적일 때만 위 지시문에 “이 서비스는 공개 서비스이며 optional/guest로 설치해”라고 명시적으로 추가합니다.</p>
   </section>
 
   <section class="panel">

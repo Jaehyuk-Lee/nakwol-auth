@@ -10,7 +10,7 @@ import type { Env } from './types';
 const ADMIN_CLIENT_ID = 'nakwol-connect-admin';
 
 export function canRequestAccessPolicy(isOperator: boolean, policy: string): boolean {
-  return policy === 'public' || policy === 'member' || (isOperator && policy === 'admin');
+  return policy === 'guest' || policy === 'public' || policy === 'member' || (isOperator && policy === 'admin');
 }
 
 export function canManageOwnedApplication(input: {

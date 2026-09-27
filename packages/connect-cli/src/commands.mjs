@@ -36,6 +36,13 @@ function normalizeAuthMode(value) {
   return mode;
 }
 
+function normalizeAccessPolicy(value) {
+  if (value === undefined) return null;
+  const policy = String(value).trim().toLowerCase();
+  if (!['guest', 'member', 'admin', 'public'].includes(policy)) throw new Error('--access-policy는 guest, member, admin 중 하나여야 합니다.');
+  return policy === 'public' ? 'guest' : policy;
+}
+
 function desiredIntegration(existingConfig, options = {}) {
   const dataOrigin = String(options.dataOrigin || existingConfig?.dataOrigin || DEFAULT_DATA_ORIGIN).replace(/\/$/, '');
   const dataScopes = options.scopes !== undefined ? parseDataScopes(options.scopes) : parseDataScopes(existingConfig?.dataScopes || []);
@@ -45,6 +52,7 @@ function desiredIntegration(existingConfig, options = {}) {
 
 async function resolveApp(root, project, existingConfig, api, options) {
   let app;
+  const accessPolicy = normalizeAccessPolicy(options.accessPolicy);
   if (existingConfig?.clientId) {
     try { app = (await api.getApp(existingConfig.clientId)).data; }
     catch (error) { if (error?.status === 404) app = null; else throw error; }
@@ -60,11 +68,16 @@ async function resolveApp(root, project, existingConfig, api, options) {
       client_id: options.clientId || existingConfig?.clientId || project.projectName,
       homepage_url: options.url || null,
       framework: project.framework,
-      access_policy: options.accessPolicy || 'member',
+      access_policy: accessPolicy || 'member',
       redirect_uris: redirectUris,
     })).data;
-  } else if (options.url && !app.redirect_uris.includes(options.url)) {
-    app = (await api.addRedirect(app.client_id, options.url)).data;
+  } else {
+    if (options.url && !app.redirect_uris.includes(options.url)) {
+      app = (await api.addRedirect(app.client_id, options.url)).data;
+    }
+    if (accessPolicy && app.access_policy !== accessPolicy) {
+      app = (await api.patchApp(app.client_id, { access_policy: accessPolicy })).data;
+    }
   }
   return app;
 }
@@ -123,6 +136,8 @@ export async function doctorProject(options = {}) {
         const app = (await api.getApp(config.clientId)).data;
         checks.push({ name:'central_app', ok:Boolean(app?.client_id), detail:app?.status || 'not found' });
         checks.push({ name:'redirects', ok:(config.redirectUris || []).every((uri) => app.redirect_uris.includes(uri)), detail:`${app.redirect_uris.length} registered` });
+        const requestedPolicy = normalizeAccessPolicy(options.accessPolicy);
+        if (requestedPolicy) checks.push({ name:'central_access_policy', ok:(app.access_policy === 'public' ? 'guest' : app.access_policy) === requestedPolicy, detail:app.access_policy || 'missing' });
       } catch (error) { checks.push({ name:'central_app', ok:false, detail:error.message }); }
       if (config.version === 2) {
         try {
@@ -180,7 +195,11 @@ export async function syncProject(options = {}) {
   const project = await detectProject(root);
   const desired = desiredIntegration(config, options);
   const { authApi, dataApi } = await authenticatedApis({ ...options, dataOrigin:desired.dataOrigin });
-  const app = (await authApi.getApp(config.clientId)).data;
+  let app = (await authApi.getApp(config.clientId)).data;
+  const accessPolicy = normalizeAccessPolicy(options.accessPolicy);
+  if (accessPolicy && app.access_policy !== accessPolicy) {
+    app = (await authApi.patchApp(config.clientId, { access_policy: accessPolicy })).data;
+  }
   const dataState = (await dataApi.setScopes(config.clientId, desired.dataScopes)).data;
   const install = await installIntegration(root, project, config.clientId, desired);
   const updated = await writeProjectConfig(root, { ...config, framework:project.framework, redirectUris:app.redirect_uris, integration:install.integration, ...desired });
