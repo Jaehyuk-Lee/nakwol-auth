@@ -41,7 +41,7 @@ npx --yes nakwol-connect init --auth optional
 Only when the user explicitly wants a fully public service, including non-member authenticated users:
 
 ```bash
-npx --yes nakwol-connect init --auth optional --access-policy public
+npx --yes nakwol-connect init --auth optional --access-policy guest
 ```
 
 The first machine authorization opens a short-lived browser approval once. After that the CLI automatically creates/reuses the AUTH app, configures exact DATA scopes, installs or updates the project marker, writes `.nakwol-connect.json`, and verifies local + AUTH + DATA + OpenAPI state.
@@ -56,9 +56,9 @@ These are separate controls:
 auth=required   page is locked until authentication succeeds (default)
 auth=optional   page is public; login is available for identity/personalization
 
+access-policy=guest    any authenticated Discord user
 access-policy=member   authenticated NAKWOL members only (default)
-access-policy=public   any authenticated NAKWOL user
-access-policy=admin    NAKWOL platform admins only
+access-policy=admin    NAKWOL AUTH operators only
 ```
 
 At runtime the Universal Embed uses `data-auth="required"` or `data-auth="optional"`. If the attribute is omitted, `required` is assumed.
@@ -71,7 +71,7 @@ When an LLM/coding agent performs an integration, it must follow these rules:
 Use the official nakwol-connect CLI.
 Do not implement Discord OAuth or PKCE separately.
 Use npx --yes nakwol-connect init for normal services.
-Do not add --auth optional or --access-policy public unless the user explicitly requests a public service.
+Do not add --auth optional or --access-policy guest unless the user explicitly requests a public service. Stored `public` policies remain a legacy alias for `guest`.
 Register the exact production callback URL.
 Reuse and normalize an existing Connect integration instead of stacking a second auth implementation.
 Do not place Discord Client Secret, Cloudflare secrets, or CLI tokens in browser code or the repository.
@@ -170,7 +170,7 @@ Useful options:
 
 ```text
 --auth <required|optional>              default: required
---access-policy <public|member|admin>   default: member
+--access-policy <guest|member|admin>    default: member
 ```
 
 ## Discovery

@@ -1,6 +1,7 @@
 import { randomToken, safeEqual, sha256Base64Url } from './crypto';
 import type { DiscordUser, Env, MembershipRow, SessionRow, UserRow } from './types';
 import { discordAvatarUrl, fetchDiscordIdentity, resolveNakwolRole } from './discord';
+import { isApplicationAccessAllowed } from './policy';
 
 // 중앙 로그인 세션: 마지막 사용 후 10일까지 유지(쓸 때마다 연장), 로그인 시점부터 최대 30일.
 // 맹원 자격은 앱 토큰(1시간)을 새로 발급할 때마다 다시 확인하므로 세션 기간과 권한 회수는 분리된다.
@@ -82,18 +83,19 @@ export async function upsertDiscordUser(env: Env, discordUser: DiscordUser, disp
   }
 }
 
-export async function upsertMembership(env: Env, userId: string, isGuildMember: boolean, role: 'user' | 'member' | 'admin'): Promise<void> {
+export async function upsertMembership(env: Env, userId: string, isGuildMember: boolean, role: 'user' | 'member' | 'admin', roleIds: readonly string[] = []): Promise<void> {
   const now = Date.now();
   const active = role === 'member' || role === 'admin';
   await env.DB.prepare(
-    `INSERT INTO memberships(user_id, guild_id, is_guild_member, role, status, checked_at)
-     VALUES (?, ?, ?, ?, ?, ?)
+    `INSERT INTO memberships(user_id, guild_id, is_guild_member, role, status, checked_at, role_ids)
+     VALUES (?, ?, ?, ?, ?, ?, ?)
      ON CONFLICT(user_id, guild_id) DO UPDATE SET
        is_guild_member = excluded.is_guild_member,
        role = excluded.role,
        status = excluded.status,
-       checked_at = excluded.checked_at`
-  ).bind(userId, env.NAKWOL_GUILD_ID, isGuildMember ? 1 : 0, role, active ? 'active' : 'inactive', now).run();
+       checked_at = excluded.checked_at,
+       role_ids = excluded.role_ids`
+  ).bind(userId, env.NAKWOL_GUILD_ID, isGuildMember ? 1 : 0, role, active ? 'active' : 'inactive', now, JSON.stringify(roleIds)).run();
 }
 
 export async function refreshDiscordMembership(
@@ -104,7 +106,7 @@ export async function refreshDiscordMembership(
   const role = resolveNakwolRole(env, member);
   const displayName = member?.nick ?? discordUser.global_name ?? discordUser.username;
   const userId = await upsertDiscordUser(env, discordUser, displayName);
-  await upsertMembership(env, userId, Boolean(member), role);
+  await upsertMembership(env, userId, Boolean(member), role, member?.roles ?? []);
   return { userId, role };
 }
 
@@ -133,6 +135,8 @@ export async function exchangeAuthorizationCode(env: Env, args: { code: string; 
 
   const expected = await sha256Base64Url(args.codeVerifier);
   if (!safeEqual(expected, row.code_challenge)) throw new Error('PKCE_VERIFICATION_FAILED');
+
+  if (!await isApplicationAccessAllowed(env, row.user_id, args.clientId)) throw new Error('ACCESS_DENIED');
 
   const accessToken = randomToken(32);
   const tokenHash = await sha256Base64Url(accessToken);
@@ -188,7 +192,7 @@ export async function getUserWithMembership(env: Env, userId: string) {
     status: user.status,
     membership: {
       is_guild_member: Boolean(membership?.is_guild_member),
-      is_member: membership?.role === 'member' || membership?.role === 'admin',
+      is_member: membership?.role === 'member' && membership.status === 'active' && Boolean(membership.is_guild_member),
       role: membership?.role ?? 'user',
       checked_at: membership?.checked_at ?? null,
     },

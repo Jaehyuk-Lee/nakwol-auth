@@ -1,7 +1,7 @@
 import { Hono } from 'hono';
 import type { Context } from 'hono';
 import { randomToken } from './crypto';
-import { buildDiscordAuthorizeUrl, exchangeDiscordCode } from './discord';
+import { buildDiscordAuthorizeUrl, exchangeDiscordCode, DiscordMembershipUnavailable } from './discord';
 import { registerDemoRoutes } from './demo';
 import { registerConnectOnboardingRoutes } from './connect-onboarding';
 import {
@@ -16,7 +16,7 @@ import {
   withCorsHeaders,
 } from './http';
 import {
-  authenticateAccessToken,
+  inspectAccessToken,
   cleanupExpiredAuthData,
   createAuthorizationCode,
   createSession,
@@ -34,6 +34,15 @@ import type { Env, OAuthRequestRow } from './types';
 
 const app = new Hono<{ Bindings: Env }>();
 const OAUTH_REQUEST_TTL_MS = 10 * 60 * 1000;
+
+app.use('/me', async (c, next) => {
+  c.header('Cache-Control', 'no-store');
+  await next();
+});
+app.use('/token', async (c, next) => {
+  c.header('Cache-Control', 'no-store');
+  await next();
+});
 
 function secureCookie(env: Env): boolean {
   return env.COOKIE_SECURE !== 'false';
@@ -249,13 +258,15 @@ app.get('/me', async (c) => {
     return origin ? withCorsHeaders(response, origin) : response;
   }
 
-  const userId = await authenticateAccessToken(c.env, token, clientId);
-  if (!userId) {
+  const tokenInfo = await inspectAccessToken(c.env, token, clientId);
+  const application = await getApplication(c.env, clientId);
+  if (!tokenInfo || application?.status !== 'active') {
     const response = c.json({ ok: false, error: { code: 'INVALID_TOKEN', message: '유효하지 않거나 만료된 token입니다.' } }, 401);
     return origin ? withCorsHeaders(response, origin) : response;
   }
 
-  if (!await isApplicationAccessAllowed(c.env, userId, clientId)) {
+  const userId = tokenInfo.userId;
+  if (!await isApplicationAccessAllowed(c.env, userId, clientId, c.req.header('X-Nakwol-Require-Member') === 'true')) {
     const response = c.json({ ok: false, error: { code: 'ACCESS_DENIED', message: '이 앱을 사용할 권한이 없습니다.' } }, 403);
     return origin ? withCorsHeaders(response, origin) : response;
   }
@@ -266,7 +277,7 @@ app.get('/me', async (c) => {
     return origin ? withCorsHeaders(response, origin) : response;
   }
 
-  const response = c.json({ ok: true, data: user });
+  const response = c.json({ ok: true, data: user, expires_at: tokenInfo.expiresAt });
   return origin ? withCorsHeaders(response, origin) : response;
 });
 
@@ -301,6 +312,9 @@ app.get('/session/logout', async (c) => {
 
 app.notFound((c) => jsonError(c, 404, 'NOT_FOUND', '요청한 경로가 없습니다.'));
 app.onError((error, c) => {
+  if (error instanceof DiscordMembershipUnavailable) {
+    return jsonError(c, 503, 'MEMBERSHIP_UNAVAILABLE', '현재 Discord 역할을 확인할 수 없습니다. 잠시 후 다시 시도해 주세요.');
+  }
   console.error(error);
   return jsonError(c, 500, 'INTERNAL_ERROR', '인증 서버 내부 오류가 발생했습니다.');
 });

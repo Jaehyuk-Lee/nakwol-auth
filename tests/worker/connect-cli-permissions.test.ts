@@ -8,7 +8,8 @@ import {
   hasConnectAppScope,
 } from '../../src/connect-admin-developers';
 
-test('developers may request public/member but not admin policy', () => {
+test('developers may request guest/member but not admin policy', () => {
+  assert.equal(canRequestAccessPolicy(false, 'guest'), true);
   assert.equal(canRequestAccessPolicy(false, 'public'), true);
   assert.equal(canRequestAccessPolicy(false, 'member'), true);
   assert.equal(canRequestAccessPolicy(false, 'admin'), false);
