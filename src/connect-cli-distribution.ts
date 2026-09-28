@@ -2,9 +2,15 @@ import type { Hono } from 'hono';
 import cliPackageBase64 from './assets/nakwol-connect-cli.tgz.b64.js.txt';
 import type { Env } from './types';
 
-export const CONNECT_CLI_VERSION = '0.6.0';
+export const CONNECT_CLI_VERSION = '0.6.1';
 export const CONNECT_CLI_PACKAGE_NAME = 'nakwol-connect';
 const SERVER_PROTECTION_GUIDANCE = `## Server protection is separate from browser authentication
+
+## Account recovery for access failures
+
+Offer an explicit "계정 확인·접속 문제 해결" link to AUTH /account?client_id=YOUR_CLIENT_ID&recovery=1 alongside login retry. Do not automatically redirect errors. AUTH resolves the return destination exclusively from registered redirect URIs; never pass arbitrary return URLs. Role refresh cannot resolve administrator restrictions or disabled services.
+
+Central /connect/v1.js includes this error link. Existing generated server gates must regenerate with Connect CLI 0.6.1 and redeploy; custom error pages must add the link. The AUTH-hosted /connect/cli/v0.6.1/package.tgz provides this version independently of npm registry publication.
 
 member means the centrally configured Season 3 role (1553600098661957643). Developers choose member, not a Discord role ID. Active developers manage owned apps with member/guest; admin policy and additional role requirements are operator-only.
 

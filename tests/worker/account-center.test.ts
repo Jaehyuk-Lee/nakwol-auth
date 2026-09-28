@@ -126,6 +126,18 @@ test('account recheck clears only browser SSO and the next authorize reaches Dis
     await DB.prepare("INSERT INTO access_tokens VALUES (?, 'user', ?, ?, NULL, ?)").bind(await sha256Base64Url(client), client, Date.now() + 60000, Date.now()).run();
   }
   const session = await createSession(env, 'user');
+  const recovery = await app.request('https://auth.test/account/api/recovery?client_id=other-service&return_to=https://evil.test/', {}, env);
+  assert.equal(recovery.status, 200);
+  assert.equal((await recovery.json()).data.url, 'https://auth.test/account');
+  assert.equal(recovery.headers.get('Cache-Control'), 'no-store');
+  assert.equal((await app.request('https://auth.test/account/api/recovery?client_id=unknown', {}, env)).status, 404);
+  assert.equal((await app.request('https://auth.test/account/api/recovery?client_id=other-service', { headers: { Authorization: 'Bearer other-service' } }, env)).status, 401);
+  await DB.prepare("UPDATE applications SET status='disabled' WHERE client_id='other-service'").run();
+  const disabled = await app.request('https://auth.test/account/api/recovery?client_id=other-service', {}, env);
+  const disabledData = (await disabled.json()).data;
+  assert.equal(disabledData.url, null);
+  assert.match(disabledData.message, /재로그인만으로 해결되지/);
+  await DB.prepare("UPDATE applications SET status='active' WHERE client_id='other-service'").run();
   const otherSession = await createSession(env, 'user');
   const request = (token: string, origin = 'https://auth.test') => app.request('https://auth.test/account/api/recheck', {
     method: 'POST', headers: { Authorization: 'Bearer ' + token, Origin: origin, Cookie: 'nakwol_sid=' + session.token },
@@ -149,4 +161,17 @@ test('account recheck clears only browser SSO and the next authorize reaches Dis
   await Promise.all(background);
   assert.equal(next.status, 302);
   assert.match(next.headers.get('Location') || '', /^https:\/\/discord.com\/oauth2\/authorize\?/);
+});
+
+test('recovery rejects unsafe registry URLs and distinguishes administrator action from role refresh', async () => {
+  const { registeredRecoveryUrl, recoveryMessage } = await import('../../src/account-recovery');
+  assert.equal(registeredRecoveryUrl(['javascript:alert(1)', 'https://user:password@site.test']), null);
+  assert.equal(registeredRecoveryUrl(['invalid', 'https://site.test/']), 'https://site.test/');
+  assert.match(recoveryMessage('USER_DISABLED'), /재로그인만으로 해결되지/);
+  assert.match(recoveryMessage('SEASON_ROLE_MISSING'), /다시 인증/);
+  assert.match(recoveryMessage('ADDITIONAL_ROLE_MISSING'), /추가 역할/);
+  const source = await root('src/account.ts');
+  assert.match(source, /saveRecovery\(\);\s*auth.clearLocalState\(\)/);
+  assert.match(source, /params.has\('code'\) \|\| params.has\('error'\)/);
+  assert.match(source, /30 \* 60 \* 1000/);
 });
