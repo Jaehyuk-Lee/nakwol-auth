@@ -18,7 +18,8 @@ async function fixture() {
     CREATE TABLE users(id TEXT PRIMARY KEY, status TEXT);
     CREATE TABLE application_settings(client_id TEXT PRIMARY KEY, access_policy TEXT);
     CREATE TABLE auth_operators(user_id TEXT PRIMARY KEY, role TEXT);
-    CREATE TABLE access_tokens(token_hash TEXT PRIMARY KEY,user_id TEXT,client_id TEXT,expires_at INTEGER,revoked_at INTEGER);
+    CREATE TABLE access_tokens(token_hash TEXT PRIMARY KEY,user_id TEXT,client_id TEXT,expires_at INTEGER,revoked_at INTEGER,created_at INTEGER);
+    CREATE TABLE user_reauthentication(user_id TEXT PRIMARY KEY,requested_at INTEGER);
     CREATE TABLE auth_events(id TEXT,user_id TEXT,client_id TEXT,event_type TEXT,detail TEXT,created_at INTEGER);
     INSERT INTO applications VALUES ('site','사이트');
     INSERT INTO application_settings VALUES ('site','member');
@@ -26,7 +27,7 @@ async function fixture() {
     INSERT INTO users VALUES ('operator','active');`);
   db.exec(readFileSync(new URL('../../migrations/0011_season_roles.sql', import.meta.url), 'utf8'));
   for (const [token, user, client] of [['admin-token','operator','nakwol-connect-admin'], ['wrong-client','operator','site'], ['member-token','member','nakwol-connect-admin']]) {
-    db.prepare('INSERT INTO access_tokens VALUES(?,?,?,?,NULL)').run(await sha256Base64Url(token), user, client, Date.now()+60000);
+    db.prepare('INSERT INTO access_tokens VALUES(?,?,?,?,NULL,0)').run(await sha256Base64Url(token), user, client, Date.now()+60000);
   }
   function prepare(sql: string, args: (string | number | null)[] = []) {
     return {

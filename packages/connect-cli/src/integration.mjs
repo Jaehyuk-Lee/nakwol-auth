@@ -15,6 +15,8 @@ function attrs(clientId, options = {}) {
   const dataOrigin = options.dataOrigin == null ? null : String(options.dataOrigin || DEFAULT_DATA_ORIGIN).replace(/\/$/, '');
   const dataScopes = options.dataScopes == null ? null : parseDataScopes(options.dataScopes).join(',');
   const lines = [`  data-client-id="${clientId}"`, `  data-auth="${authMode(options.authMode)}"`];
+  if (options.serverGate) lines.push('  data-server-gate="true"');
+  if (options.serverGate && options.siteUrl) lines.push(`  data-redirect-uri="${options.siteUrl}"`);
   if (dataOrigin != null) lines.push(`  data-data-origin="${dataOrigin}"`);
   if (dataScopes != null) lines.push(`  data-data-scopes="${dataScopes}"`);
   return lines.join('\n');

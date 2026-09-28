@@ -30,7 +30,7 @@ test('Connect public manifest and admin fallback advertise the same protected de
   const routes = await readFile(new URL('../../src/connect.ts', import.meta.url), 'utf8');
   const cliGuide = await readFile(new URL('../../CONNECT_CLI.md', import.meta.url), 'utf8');
 
-  assert.match(routes, /sdk:\s*'\/sdk\/v0\.3\.0\/nakwol-auth-web\.js'/);
+  assert.match(routes, /sdk:\s*'\/sdk\/v0\.3\.1\/nakwol-auth-web\.js'/);
   assert.match(routes, /default_auth:\s*'required'/);
   assert.match(routes, /default_access_policy:\s*'member'/);
   assert.match(routes, /row\.access_policy === 'public' \? 'guest' : row\.access_policy \?\? 'member'/);

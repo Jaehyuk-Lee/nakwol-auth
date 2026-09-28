@@ -10,6 +10,12 @@ export const SESSION_ABSOLUTE_TTL_MS = 30 * 24 * 60 * 60 * 1000;
 const AUTH_CODE_TTL_MS = 2 * 60 * 1000;
 const ACCESS_TOKEN_TTL_MS = 60 * 60 * 1000;
 
+async function credentialsInvalidated(env: Env, userId: string, issuedAt: number): Promise<boolean> {
+  const row = await env.DB.prepare(`SELECT requested_at FROM user_reauthentication WHERE user_id = ?`)
+    .bind(userId).first<{ requested_at: number }>();
+  return Boolean(row && issuedAt <= row.requested_at);
+}
+
 export async function findSessionUser(env: Env, rawToken: string | undefined): Promise<string | null> {
   if (!rawToken) return null;
   const hash = await sha256Base64Url(rawToken);
@@ -17,7 +23,7 @@ export async function findSessionUser(env: Env, rawToken: string | undefined): P
   const row = await env.DB.prepare(
     `SELECT user_id, expires_at, created_at FROM auth_sessions WHERE token_hash = ? AND expires_at > ? AND created_at > ?`
   ).bind(hash, now, now - SESSION_ABSOLUTE_TTL_MS).first<SessionRow & { created_at: number }>();
-  if (!row) return null;
+  if (!row || await credentialsInvalidated(env, row.user_id, Number(row.created_at))) return null;
   const expiresAt = sessionExpiry(Number(row.created_at), now);
   await env.DB.prepare(`UPDATE auth_sessions SET last_used_at = ?, expires_at = ? WHERE token_hash = ?`).bind(now, expiresAt, hash).run();
   return row.user_id;
@@ -154,9 +160,10 @@ export async function authenticateAccessToken(env: Env, rawToken: string, client
   const hash = await sha256Base64Url(rawToken);
   const now = Date.now();
   const row = await env.DB.prepare(
-    `SELECT user_id, client_id, expires_at, revoked_at FROM access_tokens WHERE token_hash = ?`
-  ).bind(hash).first<{ user_id: string; client_id: string; expires_at: number; revoked_at: number | null }>();
+    `SELECT user_id, client_id, expires_at, revoked_at, created_at FROM access_tokens WHERE token_hash = ?`
+  ).bind(hash).first<{ user_id: string; client_id: string; expires_at: number; revoked_at: number | null; created_at: number }>();
   if (!row || row.revoked_at || row.expires_at <= now || row.client_id !== clientId) return null;
+  if (await credentialsInvalidated(env, row.user_id, Number(row.created_at))) return null;
   return row.user_id;
 }
 
@@ -164,9 +171,10 @@ export async function inspectAccessToken(env: Env, rawToken: string, clientId: s
   const hash = await sha256Base64Url(rawToken);
   const now = Date.now();
   const row = await env.DB.prepare(
-    `SELECT user_id, client_id, expires_at, revoked_at FROM access_tokens WHERE token_hash = ?`
-  ).bind(hash).first<{ user_id: string; client_id: string; expires_at: number; revoked_at: number | null }>();
+    `SELECT user_id, client_id, expires_at, revoked_at, created_at FROM access_tokens WHERE token_hash = ?`
+  ).bind(hash).first<{ user_id: string; client_id: string; expires_at: number; revoked_at: number | null; created_at: number }>();
   if (!row || row.revoked_at || row.expires_at <= now || row.client_id !== clientId) return null;
+  if (await credentialsInvalidated(env, row.user_id, Number(row.created_at))) return null;
   return { userId: row.user_id, clientId: row.client_id, expiresAt: Number(row.expires_at) };
 }
 
