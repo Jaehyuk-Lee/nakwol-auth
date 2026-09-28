@@ -54,16 +54,19 @@ test('account summary API requires an Account Center-bound access token and stay
   assert.doesNotMatch(source, /Access-Control-Allow-Origin|withCorsHeaders/);
 });
 
-test('Account Center UI uses pinned SDK v0.2 and explicit account states/actions', async () => {
+test('Account Center UI uses pinned SDK v0.3.2 and explicit account states/actions', async () => {
   const { accountPageHtml } = await import('../../src/account');
   const html = accountPageHtml();
 
   for (const text of [
-    '/sdk/v0.2.0/nakwol-auth-web.js',
+    '/sdk/v0.3.2/nakwol-auth-web.js',
     'nakwol-account-center',
     'Discord로 낙월 로그인',
     'NAKWOL ID',
-    '연결된 서비스',
+    '이용한 서비스',
+    '고객지원 정보',
+    'Discord로 다시 확인',
+    '마지막 확인',
     '서비스 권한',
     '모든 낙월 서비스에서 로그아웃',
     '아직 표시할 연결 서비스 기록이 없습니다.',
@@ -97,4 +100,53 @@ test('Account Center UI uses pinned SDK v0.2 and explicit account states/actions
   assert.match(html, /location\.hash\s*===\s*'#permissions'/);
   assert.match(html, /confirm\(/);
   assert.match(html, /auth\.logout\(\{\s*global:\s*true,\s*returnTo:\s*location\.origin\s*\+\s*'\/account'\s*\}\)/);
+});
+
+test('account recheck clears only browser SSO and the next authorize reaches Discord', async (t) => {
+  const miniflare = await import('miniflare');
+  const { default: app } = await import('../../src/index');
+  const { registerAccountRoutes } = await import('../../src/account');
+  registerAccountRoutes(app);
+  const { createSession, findSessionUser, authenticateAccessToken } = await import('../../src/store');
+  const { sha256Base64Url } = await import('../../src/crypto');
+  const options = { modules: true, script: 'export default {fetch(){return new Response("ok")}}', d1Databases: ['DB'] };
+  const mf = new miniflare.Miniflare('convertV4MiniflareOptions' in miniflare ? miniflare.convertV4MiniflareOptions(options) : options);
+  t.after(() => mf.dispose());
+  const DB = await mf.getD1Database('DB');
+  for (const file of ['0001_initial.sql', '0003_nakwol_connect.sql', '0011_season_roles.sql', '0012_membership_role_ids.sql', '0013_access_support.sql']) {
+    const sql = await root('migrations/' + file);
+    for (const statement of sql.replace(/^--.*$/gm, '').split(';').map(s => s.trim()).filter(Boolean)) await DB.prepare(statement).run();
+  }
+  const env = { DB, NAKWOL_GUILD_ID: 'guild', NAKWOL_MEMBER_ROLE_ID: 'season3', DISCORD_CLIENT_ID: 'fixture', DISCORD_CLIENT_SECRET: 'fixture', AUTH_ORIGIN: 'https://auth.test' };
+  await DB.prepare("INSERT INTO users VALUES ('user', '계정 검증', NULL, 'active', 0, 0)").run();
+  await DB.prepare(`INSERT INTO applications VALUES ('nakwol-account-center', '계정', '["https://auth.test/account"]', 'active', 0, 0)`).run();
+  await DB.prepare("INSERT INTO application_settings(client_id,access_policy,created_at,updated_at) VALUES ('nakwol-account-center','guest',0,0)").run();
+  for (const client of ['nakwol-account-center', 'other-service']) {
+    await DB.prepare(`INSERT OR IGNORE INTO applications VALUES (?, ?, '["https://auth.test/account"]', 'active', 0, 0)`).bind(client, client).run();
+    await DB.prepare("INSERT INTO access_tokens VALUES (?, 'user', ?, ?, NULL, ?)").bind(await sha256Base64Url(client), client, Date.now() + 60000, Date.now()).run();
+  }
+  const session = await createSession(env, 'user');
+  const otherSession = await createSession(env, 'user');
+  const request = (token: string, origin = 'https://auth.test') => app.request('https://auth.test/account/api/recheck', {
+    method: 'POST', headers: { Authorization: 'Bearer ' + token, Origin: origin, Cookie: 'nakwol_sid=' + session.token },
+  }, env);
+  assert.equal((await request('missing')).status, 401);
+  assert.equal((await request('other-service')).status, 401);
+  assert.equal((await request('nakwol-account-center', 'https://evil.test')).status, 403);
+  assert.equal(await findSessionUser(env, session.token), 'user');
+  const response = await request('nakwol-account-center');
+  assert.equal(response.status, 200);
+  assert.equal(response.headers.get('Cache-Control'), 'no-store');
+  assert.match(response.headers.get('Set-Cookie') || '', /Max-Age=0/);
+  assert.equal(await findSessionUser(env, session.token), null);
+  assert.equal(await findSessionUser(env, otherSession.token), 'user');
+  assert.equal(await authenticateAccessToken(env, 'other-service', 'other-service'), 'user');
+  const background: Promise<unknown>[] = [];
+  t.mock.method(Math, 'random', () => 0);
+  const next = await app.request('https://auth.test/authorize?client_id=nakwol-account-center&redirect_uri=https%3A%2F%2Fauth.test%2Faccount&code_challenge=fixture&code_challenge_method=S256&state=fixture', {
+    headers: { Cookie: 'nakwol_sid=' + session.token },
+  }, env, { waitUntil: promise => { background.push(promise); }, passThroughOnException() {}, props: {} });
+  await Promise.all(background);
+  assert.equal(next.status, 302);
+  assert.match(next.headers.get('Location') || '', /^https:\/\/discord.com\/oauth2\/authorize\?/);
 });
