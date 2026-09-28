@@ -15,7 +15,7 @@ function denied(request, status, settings) {
   const html = request.method === 'GET' && request.headers.get('Accept')?.includes('text/html') && !request.headers.has('Range');
   return response(html ? loginPage(settings, status) : null, status, {
     'Content-Type': html ? 'text/html; charset=utf-8' : 'text/plain',
-    ...(status === 401 ? { 'Set-Cookie': clearCookie } : {}),
+    ...([401, 403].includes(status) ? { 'Set-Cookie': clearCookie } : {}),
   });
 }
 async function key(secret) {
@@ -51,7 +51,9 @@ async function verify(token, settings) {
     if (!result.ok) return { status: [401, 403].includes(result.status) ? result.status : 503 };
     const body = await result.json();
     if (body.ok !== true || body.data?.status !== 'active') return { status: 403 };
-    if (settings.accessPolicy === 'member' && body.data?.membership?.is_member !== true) return { status: 403 };
+    const manualGrant = body.application_access?.client_id === settings.clientId
+      && body.application_access?.allowed === true && body.application_access?.source === 'manual_grant';
+    if (settings.accessPolicy === 'member' && body.data?.membership?.is_member !== true && !manualGrant) return { status: 403 };
     if (!Number.isFinite(body.expires_at) || body.expires_at <= Date.now()) return { status: 401 };
     return { status: 200, expires: body.expires_at };
   } catch { return { status: 503 }; } // AUTH outages fail closed at the request boundary.

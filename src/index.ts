@@ -1,3 +1,4 @@
+import { diagnoseApplicationAccess } from './policy';
 import { Hono } from 'hono';
 import type { Context } from 'hono';
 import { randomToken } from './crypto';
@@ -120,9 +121,12 @@ app.get('/authorize', async (c) => {
       await logAuthEvent(c.env, prompt === 'none' ? 'authorize.sso_auto' : 'authorize.sso', sessionUserId, clientId);
       return c.redirect(redirectWithParams(redirectUri, { code, state: clientState }), 302);
     }
-    await logAuthEvent(c.env, 'authorize.access_denied', sessionUserId, clientId, { reverify: prompt !== 'none' });
+    await logAuthEvent(c.env, 'authorize.access_denied', sessionUserId, clientId, { reverify: prompt !== 'none', diagnosis: await diagnoseApplicationAccess(c.env, sessionUserId, clientId) });
     if (prompt === 'none') {
-      return c.redirect(redirectWithParams(redirectUri, { error: 'access_denied', state: clientState }), 302);
+      await deleteSession(c.env, sid);
+      const response = c.redirect(redirectWithParams(redirectUri, { error: 'access_denied', state: clientState }), 302);
+      response.headers.set('Set-Cookie', clearSessionCookie(secureCookie(c.env)));
+      return response;
     }
     // 저장된 역할은 마지막 Discord 로그인 시점 값이다. 역할을 새로 받은 사용자가
     // 세션 때문에 계속 거절되지 않도록, 직접 로그인할 때는 Discord에서 역할을 다시 읽는다.
@@ -174,24 +178,25 @@ app.get('/auth/discord/callback', async (c) => {
   try {
     const discordAccessToken = await exchangeDiscordCode(c.env, discordCode);
     const { userId, role } = await refreshDiscordMembership(c.env, discordAccessToken);
-    const session = await createSession(c.env, userId);
     const allowed = await isApplicationAccessAllowed(c.env, userId, requestRow.client_id);
 
     await c.env.DB.prepare(`DELETE FROM oauth_requests WHERE id = ?`).bind(requestId).run();
 
     if (!allowed) {
-      await logAuthEvent(c.env, 'discord.login.access_denied', userId, requestRow.client_id, { role });
+      await logAuthEvent(c.env, 'discord.login.access_denied', userId, requestRow.client_id, { role, diagnosis: await diagnoseApplicationAccess(c.env, userId, requestRow.client_id) });
       const response = c.redirect(redirectWithParams(requestRow.redirect_uri, {
         error: 'access_denied',
         state: requestRow.client_state,
       }), 302);
-      response.headers.set('Set-Cookie', sessionCookie(session.token, secureCookie(c.env), session.maxAgeSeconds));
+      await deleteSession(c.env, parseCookies(c.req.header('Cookie')).nakwol_sid);
+      response.headers.set('Set-Cookie', clearSessionCookie(secureCookie(c.env)));
       return response;
     }
 
     const code = await createAuthorizationCode(c.env, userId, requestRow.client_id, requestRow.redirect_uri, requestRow.code_challenge);
     await logAuthEvent(c.env, 'discord.login.success', userId, requestRow.client_id, { role });
 
+    const session = await createSession(c.env, userId);
     const response = c.redirect(redirectWithParams(requestRow.redirect_uri, { code, state: requestRow.client_state }), 302);
     response.headers.set('Set-Cookie', sessionCookie(session.token, secureCookie(c.env), session.maxAgeSeconds));
     return response;
@@ -270,7 +275,8 @@ app.get('/me', async (c) => {
   }
 
   const userId = tokenInfo.userId;
-  if (!await isApplicationAccessAllowed(c.env, userId, clientId, c.req.header('X-Nakwol-Require-Member') === 'true')) {
+  const access = await diagnoseApplicationAccess(c.env, userId, clientId, c.req.header('X-Nakwol-Require-Member') === 'true');
+  if (!access.allowed) {
     const response = c.json({ ok: false, error: { code: 'ACCESS_DENIED', message: '이 앱을 사용할 권한이 없습니다.' } }, 403);
     return origin ? withCorsHeaders(response, origin) : response;
   }
@@ -281,7 +287,8 @@ app.get('/me', async (c) => {
     return origin ? withCorsHeaders(response, origin) : response;
   }
 
-  const response = c.json({ ok: true, data: user, expires_at: tokenInfo.expiresAt });
+  const response = c.json({ ok: true, data: user, expires_at: tokenInfo.expiresAt,
+    application_access: { client_id: clientId, allowed: true, source: access.reason === 'MANUAL_GRANT' ? 'manual_grant' : 'policy' } });
   return origin ? withCorsHeaders(response, origin) : response;
 });
 

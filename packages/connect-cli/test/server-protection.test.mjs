@@ -81,13 +81,13 @@ test('live probe rejects public content, redirects, outage and generic denial wi
 
 test('server gate enforces authentication on content, HEAD and Range; rechecks revoked sessions', async t => {
   const originalFetch=globalThis.fetch; t.after(()=>{globalThis.fetch=originalFetch;});
-  let authStatus=200, member=true, assetCalls=0;
+  let authStatus=200, member=true, assetCalls=0, manualClient=null;
   const settings={clientId:'test-site',authOrigin:'https://auth.test',siteUrl:'https://site.test/',accessPolicy:'member'};
   globalThis.fetch=async(url,init)=>{
     if(new URL(url).pathname==='/logout')return new Response(null,{status:204});
     assert.equal(new URL(url).searchParams.get('client_id'),'test-site');
     assert.equal(init.headers['X-Nakwol-Require-Member'],'true');
-    return authStatus===200?Response.json({ok:true,data:{status:'active',membership:{is_member:member}},expires_at:Date.now()+60000}):new Response(null,{status:authStatus});
+    return authStatus===200?Response.json({ok:true,data:{status:'active',membership:{is_member:member}},application_access:{client_id:manualClient,allowed:true,source:'manual_grant'},expires_at:Date.now()+60000}):new Response(null,{status:authStatus});
   };
   const env={NAKWOL_SESSION_SECRET:'a'.repeat(40),ASSETS:{fetch:async()=>{assetCalls++;return new Response('PRIVATE',{headers:{'Cache-Control':'public'}});}}};
   const request=(path='/',init={})=>serveProtected(new Request('https://site.test'+path,init),env,settings);
@@ -96,13 +96,19 @@ test('server gate enforces authentication on content, HEAD and Range; rechecks r
   const html=await (await request('/',{headers:{Accept:'text/html'}})).text();
   assert.match(html,/NAKWOL 로그인/); assert.doesNotMatch(html,/PRIVATE/);
   const establish=()=>request('/__nakwol/session',{method:'POST',headers:{Origin:'https://site.test','Content-Type':'application/json'},body:JSON.stringify({access_token:'test-token'})});
-  member=false;assert.equal((await establish()).status,403); member=true;
+  member=false;assert.equal((await establish()).status,403);
+  manualClient='other-site';assert.equal((await establish()).status,403);
+  manualClient='test-site';assert.equal((await establish()).status,204);
+  manualClient=null;member=true;
   const session=await establish(); assert.equal(session.status,204);
   const cookie=session.headers.get('Set-Cookie').split(';')[0];
   assert.match(session.headers.get('Set-Cookie'),/HttpOnly; Secure; SameSite=Lax/);
   const allowed=await request('/private.json',{headers:{Cookie:cookie}});
   assert.equal(await allowed.text(),'PRIVATE');assert.match(allowed.headers.get('Cache-Control'),/no-store/);
-  authStatus=403;assert.equal((await request('/private.json',{headers:{Cookie:cookie}})).status,403);
+  authStatus=403;
+  const deniedSession=await request('/private.json',{headers:{Cookie:cookie}});
+  assert.equal(deniedSession.status,403);
+  assert.match(deniedSession.headers.get('Set-Cookie'),/Max-Age=0/);
   authStatus=401;assert.equal((await request('/private.json',{headers:{Cookie:cookie}})).status,401);
   authStatus=503;assert.equal((await request('/private.json',{headers:{Cookie:cookie}})).status,503);
   assert.equal(assetCalls,1);
@@ -123,7 +129,7 @@ test('login bridge module parses and provides explicit denial and cookie failure
 test('login page driver restores deep links and explains role denial without reload loops',async()=>{
   const AsyncFunction=Object.getPrototypeOf(async function(){}).constructor;
   const settings={clientId:'site',authOrigin:'https://auth.test',siteUrl:'https://site.test/'};
-  const source=loginPage(settings,401).split('<script type="module">')[1].split('</script>')[0].replace("await import(settings.authOrigin+'/sdk/v0.3.0/nakwol-auth-web.js')",'sdk');
+  const source=loginPage(settings,401).split('<script type="module">')[1].split('</script>')[0].replace("await import(settings.authOrigin+'/sdk/v0.3.1/nakwol-auth-web.js')",'sdk');
   const execute=new AsyncFunction('sdk','location','document','sessionStorage','fetch',source);
   const storage=new Map();
   const sessionStorage={getItem:k=>storage.get(k)||null,setItem:(k,v)=>storage.set(k,v),removeItem:k=>storage.delete(k)};

@@ -12,7 +12,7 @@ try { if(location.pathname!=='/' && !location.pathname.startsWith('/__nakwol/'))
 retry.onclick=()=>location.reload();
 const fail=(code)=>{statusEl.textContent=code==='access_denied'||code===403?'이 사이트의 접근 권한이 없습니다. member 사이트는 시즌3 역할이 필요하며 추가 역할 조건이 있을 수 있습니다. 역할을 받은 뒤 다시 로그인해 주세요.':code===503?'인증 서버를 확인할 수 없습니다. 잠시 후 다시 확인해 주세요.':'로그인을 완료하지 못했습니다. 다시 로그인해 주세요.';login.disabled=false;retry.hidden=false;};
 try {
- const {NakwolAuthClient}=await import(settings.authOrigin+'/sdk/v0.3.0/nakwol-auth-web.js');
+ const {NakwolAuthClient}=await import(settings.authOrigin+'/sdk/v0.3.1/nakwol-auth-web.js');
  const auth=new NakwolAuthClient({...settings,autoSso:settings.status===401});
  login.onclick=()=>{login.disabled=true;auth.login().catch(e=>fail(e.code));};
  if(settings.status===503){fail(503);}else{
