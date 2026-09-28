@@ -148,7 +148,7 @@ jobs:
                  grep -q 'init --auth optional' /tmp/cli-manifest && \
                  grep -q 'data describe --json' /tmp/cli-manifest && \
                  grep -q 'openapi.json' /tmp/cli-manifest && \
-                 grep -qi 'protected by default' /tmp/llms && \
+                 grep -qi 'authentication policy is REQUIRED BY DEFAULT' /tmp/llms && \
                  grep -q 'auth = required' /tmp/llms && \
                  grep -q 'access_policy = member' /tmp/llms && \
                  grep -q 'init --auth optional' /tmp/llms && \
