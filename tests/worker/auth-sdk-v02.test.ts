@@ -54,8 +54,8 @@ test('v0.1 stays pinned and v0.2 adds the Identity Menu contract', async () => {
   assert.match(routes, /\/sdk\/v0\.1\.0\/nakwol-auth-web\.js/);
   assert.match(routes, /\/sdk\/v0\.2\.0\/nakwol-auth-web\.js/);
   assert.match(routes, /\/sdk\/v0\.3\.0\/nakwol-auth-web\.js/);
-  assert.match(routes, /NAKWOL_AUTH_WEB_SDK_VERSION\s*=\s*'0\.3\.1'/);
-  assert.match(routes, /module:\s*'\/sdk\/v0\.3\.1\/nakwol-auth-web\.js'/);
+  assert.match(routes, /NAKWOL_AUTH_WEB_SDK_VERSION\s*=\s*'0\.3\.2'/);
+  assert.match(routes, /module:\s*'\/sdk\/v0\.3\.2\/nakwol-auth-web\.js'/);
 });
 
 test('inherit theme consumes the documented host CSS variables without shadow aliases', async () => {

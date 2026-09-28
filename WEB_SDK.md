@@ -1,4 +1,4 @@
-# NAKWOL AUTH Web SDK v0.2.0
+# NAKWOL AUTH Web SDK v0.3.2
 
 낙월 서비스용 브라우저 인증 SDK입니다. 각 서비스는 Discord OAuth를 직접 구현하지 않고 중앙 `NAKWOL AUTH`의 Authorization Code + PKCE(S256) 흐름을 사용합니다.
 
@@ -12,6 +12,9 @@ https://nakwol-auth.sepsd21.workers.dev/sdk/v0.1.0/nakwol-auth-web.js
 
 # UX v1 버전 — immutable
 https://nakwol-auth.sepsd21.workers.dev/sdk/v0.2.0/nakwol-auth-web.js
+
+# 기본 메뉴 간소화 버전 — immutable
+https://nakwol-auth.sepsd21.workers.dev/sdk/v0.3.2/nakwol-auth-web.js
 
 # stable alias — 안정 버전 승격 시 대상이 이동할 수 있음
 https://nakwol-auth.sepsd21.workers.dev/sdk/nakwol-auth-web.js
@@ -39,7 +42,7 @@ NAKWOL AUTH의 `applications`에 다음이 등록되어 있어야 합니다.
   import {
     NakwolAuthClient,
     mountNakwolIdentityMenu,
-  } from 'https://nakwol-auth.sepsd21.workers.dev/sdk/v0.2.0/nakwol-auth-web.js';
+  } from 'https://nakwol-auth.sepsd21.workers.dev/sdk/v0.3.2/nakwol-auth-web.js';
 
   const auth = new NakwolAuthClient({
     clientId: 'my-app',
@@ -64,9 +67,10 @@ NAKWOL AUTH의 `applications`에 다음이 등록되어 있어야 합니다.
 - `container`: 기존 DOM 컨테이너
 - `accountUrl`: Account Center URL 재정의
 - `showName`: 표시 이름 노출 여부
-- `showRole`: 역할 표시 여부
+- `showRole`: 역할 표시 여부 (기본 `false`)
+- `showAccountLinks`: 내 낙월 계정·이 서비스 권한 링크 표시 여부 (기본 `false`)
 
-로그인 사용자는 메뉴에서 `내 낙월 계정`, `이 서비스 권한`, 로그아웃 동작을 사용할 수 있습니다. 메뉴는 `aria-haspopup`, `aria-expanded`를 사용하며 Escape/외부 클릭 닫기와 포커스 복귀를 지원합니다.
+v0.3.2 기본 메뉴는 닉네임과 로그아웃만 표시합니다. 계정 링크가 필요한 서비스만 `showAccountLinks: true`를 지정합니다. 중앙 Embed는 `data-account-links="true"`, 역할 표시는 `data-show-role="true"`로 선택합니다. `/account`와 인증 API는 유지됩니다. 기존 고정 SDK(v0.1.0–v0.3.1)는 변경되지 않으며 새 기본값 적용에는 v0.3.2로 업데이트해야 합니다. 중앙 `/connect/v1.js`는 배포 후 자동으로 새 기본값을 사용합니다. 내 덱·즐겨찾기 같은 서비스별 메뉴 확장은 향후 별도 기능이며 이번 버전에는 포함하지 않습니다. 메뉴는 `aria-haspopup`, `aria-expanded`를 사용하며 Escape/외부 클릭 닫기와 포커스 복귀를 지원합니다.
 
 ## 테마 변수
 

@@ -1,0 +1,228 @@
+import { NakwolAuthClient, NakwolAuthError } from '../v0.3.1/nakwol-auth-web.js';
+export { NakwolAuthClient, NakwolAuthError };
+export { DEFAULT_NAKWOL_AUTH_ORIGIN, mountNakwolAuthWidget } from '../v0.3.1/nakwol-auth-web.js';
+export const NAKWOL_AUTH_SDK_VERSION = '0.3.2';
+
+function node(tag, className, text) {
+  const element = document.createElement(tag);
+  if (className) element.className = className;
+  if (text !== undefined && text !== null) element.textContent = text;
+  return element;
+}
+
+const IDENTITY_VARIANTS = new Set(['button', 'compact', 'menu']);
+const IDENTITY_THEMES = new Set(['inherit', 'light', 'dark']);
+
+function identityRoleLabel(user) {
+  const role = user?.membership?.role || 'user';
+  if (role === 'admin') return '낙월 관리자';
+  if (user?.membership?.is_member || role === 'member') return '낙월 맹원';
+  return '일반 사용자';
+}
+
+function ensureIdentityStyles() {
+  if (document.getElementById('nakwol-auth-sdk-identity-style')) return;
+  const style = document.createElement('style');
+  style.id = 'nakwol-auth-sdk-identity-style';
+  style.textContent = `
+    .nakwol-identity{
+      position:relative;display:inline-flex;align-items:center;
+      font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
+      color:var(--nakwol-auth-text,#111827)
+    }
+    .nakwol-identity[data-theme="light"]{--nakwol-auth-accent:#5865f2;--nakwol-auth-bg:#fff;--nakwol-auth-text:#111827;--nakwol-auth-muted:#6b7280;--nakwol-auth-border:#e5e7eb;--nakwol-auth-radius:12px;--nakwol-auth-shadow:0 12px 32px rgba(17,24,39,.16)}
+    .nakwol-identity[data-theme="dark"]{--nakwol-auth-accent:#7c86ff;--nakwol-auth-bg:#111827;--nakwol-auth-text:#f9fafb;--nakwol-auth-muted:#cbd5e1;--nakwol-auth-border:#374151;--nakwol-auth-radius:12px;--nakwol-auth-shadow:0 12px 32px rgba(0,0,0,.36)}
+    .nakwol-identity__button,.nakwol-identity__trigger{appearance:none;border:1px solid var(--nakwol-auth-border,#e5e7eb);border-radius:var(--nakwol-auth-radius,12px);background:var(--nakwol-auth-bg,#fff);color:var(--nakwol-auth-text,#111827);font:inherit;cursor:pointer;min-height:38px}
+    .nakwol-identity__button{padding:8px 13px;background:var(--nakwol-auth-accent,#5865f2);border-color:transparent;color:#fff;font-size:13px;font-weight:750}
+    .nakwol-identity__trigger{display:inline-flex;align-items:center;gap:8px;padding:5px 9px;box-shadow:0 1px 2px rgba(0,0,0,.04)}
+    .nakwol-identity__trigger:focus-visible,.nakwol-identity__button:focus-visible,.nakwol-identity__menu a:focus-visible,.nakwol-identity__menu button:focus-visible{outline:2px solid var(--nakwol-auth-accent,#5865f2);outline-offset:2px}
+    .nakwol-identity__avatar{width:27px;height:27px;border-radius:50%;object-fit:cover;background:var(--nakwol-auth-border,#e5e7eb);display:grid;place-items:center;font-size:12px;font-weight:800;color:var(--nakwol-auth-muted,#6b7280)}
+    .nakwol-identity__name{max-width:150px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:13px;font-weight:750}
+    .nakwol-identity__chevron{font-size:10px;color:var(--nakwol-auth-muted,#6b7280)}
+    .nakwol-identity__status{font-size:12px;color:var(--nakwol-auth-muted,#6b7280);padding:8px 10px;border:1px solid var(--nakwol-auth-border,#e5e7eb);border-radius:var(--nakwol-auth-radius,12px);background:var(--nakwol-auth-bg,#fff)}
+    .nakwol-identity__status[data-error="true"]{color:#b91c1c}
+    .nakwol-identity__menu{position:absolute;z-index:2147483000;top:calc(100% + 7px);right:0;min-width:220px;padding:7px;border:1px solid var(--nakwol-auth-border,#e5e7eb);border-radius:var(--nakwol-auth-radius,12px);background:var(--nakwol-auth-bg,#fff);box-shadow:var(--nakwol-auth-shadow,0 12px 32px rgba(17,24,39,.16));color:var(--nakwol-auth-text,#111827)}
+    .nakwol-identity__menu[hidden]{display:none}
+    .nakwol-identity__summary{padding:8px 9px 9px;border-bottom:1px solid var(--nakwol-auth-border,#e5e7eb);margin-bottom:5px}
+    .nakwol-identity__summary-name{font-size:13px;font-weight:800;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+    .nakwol-identity__summary-role{margin-top:3px;font-size:11px;color:var(--nakwol-auth-muted,#6b7280)}
+    .nakwol-identity__menu a,.nakwol-identity__menu button{display:flex;width:100%;box-sizing:border-box;align-items:center;min-height:34px;padding:7px 9px;border:0;border-radius:8px;background:transparent;color:var(--nakwol-auth-text,#111827);font:inherit;font-size:12px;text-align:left;text-decoration:none;cursor:pointer}
+    .nakwol-identity__menu a:hover,.nakwol-identity__menu button:hover{background:color-mix(in srgb,var(--nakwol-auth-accent,#5865f2) 10%,transparent)}
+    .nakwol-identity[data-variant="button"] .nakwol-identity__trigger{padding-inline:7px}
+    .nakwol-identity[data-variant="button"] .nakwol-identity__name{display:none}
+    .nakwol-identity[data-variant="menu"] .nakwol-identity__trigger{min-width:180px;justify-content:flex-start}
+    .nakwol-identity[data-variant="menu"] .nakwol-identity__chevron{margin-left:auto}
+  `;
+  document.head.appendChild(style);
+}
+
+export function mountNakwolIdentityMenu(client, options = {}) {
+  if (!(client instanceof NakwolAuthClient)) throw new NakwolAuthError('INVALID_CLIENT', 'NakwolAuthClient 인스턴스가 필요합니다.');
+
+  const variant = options.variant || 'compact';
+  const theme = options.theme || 'inherit';
+  if (!IDENTITY_VARIANTS.has(variant)) throw new NakwolAuthError('INVALID_VARIANT', `지원하지 않는 Identity Menu variant입니다: ${variant}`);
+  if (!IDENTITY_THEMES.has(theme)) throw new NakwolAuthError('INVALID_THEME', `지원하지 않는 Identity Menu theme입니다: ${theme}`);
+
+  ensureIdentityStyles();
+  const root = options.container || node('div', 'nakwol-identity');
+  root.classList.add('nakwol-identity');
+  root.dataset.variant = variant;
+  root.dataset.theme = theme;
+  if (!options.container) document.body.appendChild(root);
+
+  const showName = options.showName !== false;
+  const showRole = options.showRole === true;
+  let trigger = null;
+  let menu = null;
+  let destroyed = false;
+
+  const clear = () => {
+    while (root.firstChild) root.removeChild(root.firstChild);
+    trigger = null;
+    menu = null;
+  };
+
+  const accountHref = (hash = '') => {
+    const url = new URL(options.accountUrl || `${client.authOrigin}/account`);
+    if (!options.accountUrl) url.searchParams.set('client_id', client.clientId);
+    if (hash) url.hash = hash;
+    return url.toString();
+  };
+
+  const setOpen = (open, returnFocus = false) => {
+    if (!trigger || !menu) return;
+    trigger.setAttribute('aria-expanded', open ? 'true' : 'false');
+    menu.hidden = !open;
+    if (!open && returnFocus) trigger.focus();
+  };
+
+  const renderLoading = () => {
+    if (destroyed) return;
+    clear();
+    root.appendChild(node('span', 'nakwol-identity__status', options.loadingText || '낙월 인증 확인 중…'));
+  };
+
+  const renderLoggedOut = (errorMessage = '') => {
+    if (destroyed) return;
+    clear();
+    if (errorMessage) {
+      const error = node('span', 'nakwol-identity__status', errorMessage);
+      error.dataset.error = 'true';
+      root.appendChild(error);
+    }
+    const login = node('button', 'nakwol-identity__button', options.loginText || '낙월 로그인');
+    login.type = 'button';
+    login.addEventListener('click', () => client.login());
+    root.appendChild(login);
+  };
+
+  const renderUser = (user) => {
+    if (destroyed) return;
+    clear();
+
+    trigger = node('button', 'nakwol-identity__trigger');
+    trigger.type = 'button';
+    trigger.setAttribute('aria-haspopup', 'menu');
+    trigger.setAttribute('aria-expanded', 'false');
+    trigger.setAttribute('aria-label', '낙월 계정 메뉴 열기');
+
+    if (user?.avatar_url) {
+      const avatar = node('img', 'nakwol-identity__avatar');
+      avatar.src = user.avatar_url;
+      avatar.alt = '';
+      trigger.appendChild(avatar);
+    } else {
+      const fallback = node('span', 'nakwol-identity__avatar', String(user?.display_name || user?.id || 'N').slice(0, 1).toUpperCase());
+      fallback.setAttribute('aria-hidden', 'true');
+      trigger.appendChild(fallback);
+    }
+
+    if (showName) trigger.appendChild(node('span', 'nakwol-identity__name', user?.display_name || user?.id || 'NAKWOL ID'));
+    trigger.appendChild(node('span', 'nakwol-identity__chevron', '▾'));
+
+    menu = node('div', 'nakwol-identity__menu');
+    menu.hidden = true;
+    menu.setAttribute('role', 'menu');
+
+    const summary = node('div', 'nakwol-identity__summary');
+    summary.appendChild(node('div', 'nakwol-identity__summary-name', user?.display_name || user?.id || 'NAKWOL ID'));
+    if (showRole) summary.appendChild(node('div', 'nakwol-identity__summary-role', identityRoleLabel(user)));
+    menu.appendChild(summary);
+
+    if (options.showAccountLinks === true) {
+      const accountLink = node('a', '', '내 낙월 계정');
+      accountLink.href = accountHref();
+      accountLink.setAttribute('role', 'menuitem');
+      menu.appendChild(accountLink);
+  
+      const permissionLink = node('a', '', '이 서비스 권한');
+      permissionLink.href = accountHref('permissions');
+      permissionLink.setAttribute('role', 'menuitem');
+      menu.appendChild(permissionLink);
+    }
+
+    const logout = node('button', '', options.logoutText || '로그아웃');
+    logout.type = 'button';
+    logout.setAttribute('role', 'menuitem');
+    logout.addEventListener('click', async () => {
+      setOpen(false);
+      await client.logout({ global: Boolean(options.globalLogout) });
+    });
+    menu.appendChild(logout);
+
+    trigger.addEventListener('click', () => setOpen(trigger.getAttribute('aria-expanded') !== 'true'));
+    root.append(trigger, menu);
+  };
+
+  const onDocumentPointer = (event) => {
+    if (!root.contains(event.target)) setOpen(false);
+  };
+  const onDocumentKey = (event) => {
+    if (event.key === 'Escape' && trigger?.getAttribute('aria-expanded') === 'true') setOpen(false, true);
+  };
+  document.addEventListener('pointerdown', onDocumentPointer);
+  document.addEventListener('keydown', onDocumentKey);
+
+  const onLoading = () => renderLoading();
+  const onUser = (event) => renderUser(event.detail);
+  const onLogout = () => renderLoggedOut();
+  const onError = (event) => renderLoggedOut(`인증 실패: ${event.detail?.code || 'unknown'}`);
+  client.addEventListener('loading', onLoading);
+  client.addEventListener('user', onUser);
+  client.addEventListener('logout', onLogout);
+  client.addEventListener('error', onError);
+
+  renderLoading();
+  const ready = client.bootstrap().then((user) => {
+    if (user) renderUser(user);
+    else renderLoggedOut();
+    return user;
+  }).catch((error) => {
+    renderLoggedOut(`인증 실패: ${error?.code || 'unknown'}`);
+    throw error;
+  });
+
+  return {
+    element: root,
+    ready,
+    refresh: async () => {
+      renderLoading();
+      const user = await client.getMe();
+      if (user) renderUser(user);
+      else renderLoggedOut();
+      return user;
+    },
+    destroy: () => {
+      if (destroyed) return;
+      destroyed = true;
+      document.removeEventListener('pointerdown', onDocumentPointer);
+      document.removeEventListener('keydown', onDocumentKey);
+      client.removeEventListener('loading', onLoading);
+      client.removeEventListener('user', onUser);
+      client.removeEventListener('logout', onLogout);
+      client.removeEventListener('error', onError);
+      root.remove();
+    },
+  };
+}
