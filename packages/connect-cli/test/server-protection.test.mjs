@@ -133,7 +133,7 @@ test('login page driver restores deep links and explains role denial without rel
   const execute=new AsyncFunction('sdk','location','document','sessionStorage','fetch',source);
   const storage=new Map();
   const sessionStorage={getItem:k=>storage.get(k)||null,setItem:(k,v)=>storage.set(k,v),removeItem:k=>storage.delete(k)};
-  const elements={status:{},login:{},retry:{hidden:true}};
+  const elements={status:{},login:{},retry:{hidden:true},recovery:{hidden:true}};
   const document={getElementById:id=>elements[id]};
   let target=null,denied=false;
   const location={origin:'https://site.test',pathname:'/private/deck',search:'',hash:'',replace:p=>{target=p;},reload(){}};
@@ -147,6 +147,11 @@ test('login page driver restores deep links and explains role denial without rel
   target=null;denied=true;
   await execute(sdk,location,document,sessionStorage,async()=>{throw new Error('should not establish');});
   assert.equal(target,null);assert.match(elements.status.textContent,/시즌3/);assert.equal(elements.login.disabled,false);
+  assert.equal(elements.recovery.hidden,false);
+  const recoveryUrl=new URL(elements.recovery.href);
+  assert.equal(recoveryUrl.pathname,'/account');
+  assert.equal(recoveryUrl.searchParams.get('client_id'),'site');
+  assert.equal(recoveryUrl.searchParams.get('recovery'),'1');
   denied=false;storage.set('nakwol:server:return:site:attempts',JSON.stringify([Date.now(),Date.now()]));
   await execute(sdk,location,document,sessionStorage,async()=>new Response(null,{status:204}));
   assert.equal(target,null);assert.match(elements.status.textContent,/쿠키를 허용/);
