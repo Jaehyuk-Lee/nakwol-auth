@@ -158,3 +158,19 @@ if (!user) loginButton.onclick = () => auth.login();
 - 새 breaking/minor 계약은 새 pinned URL을 만들고 기존 pinned URL은 유지
 
 첫 외부 레퍼런스 통합은 별도 계획에 따라 `siege-calculator.pages.dev`에서 진행하며, AUTH v0.2.0의 stable production smoke가 끝나기 전에는 소비자 전환을 진행하지 않습니다.
+
+## 접속 문제의 공통 복구 경로
+
+오류 화면에 `https://nakwol-auth.sepsd21.workers.dev/account?client_id=YOUR_CLIENT_ID&recovery=1` 링크를 **계정 확인·접속 문제 해결**로 표시할 수 있습니다. 자동 이동시키지 말고 현재 서비스의 로그인 재시도 버튼과 함께 제공하세요.
+
+계정 페이지는 등록된 서비스 이름, 확인된 접근 상태 안내, Discord 역할 재확인, 서비스 복귀 버튼을 제공합니다. 복귀 주소는 AUTH에 등록된 Redirect URI에서만 선택하며 전달된 임의의 `return_to` 주소는 사용하지 않습니다. 관리자 차단·운영자 전용·서비스 설정 문제는 재로그인으로 해결되지 않는다고 안내합니다.
+
+중앙 `/connect/v1.js` 오류 화면에는 새로고침 후 적용됩니다. Connect CLI 0.6.1로 생성한 서버 보호 로그인 화면에도 포함됩니다. 이미 생성·배포한 서버 코드는 설치에 사용한 `protect` 명령으로 다시 생성하고 사이트를 재배포해야 합니다. 자체 제작 오류 화면은 위 링크를 직접 연결해야 합니다. 복구 링크 자체가 서버의 접근 권한 검사를 대체하지는 않습니다.
+
+npm 레지스트리 반영과 무관하게 이번 공식 패키지는 AUTH의 `/connect/cli/v0.6.1/package.tgz`에서 받을 수 있습니다. 기존 서버 보호 설정을 보존하면서 해당 프로젝트에서 다음 형태로 실행합니다(assets·url은 기존 설정 사용).
+
+```bash
+npm exec --yes --package=https://nakwol-auth.sepsd21.workers.dev/connect/cli/v0.6.1/package.tgz -- nakwol-connect protect install --provider cloudflare-workers --assets dist --url https://YOUR-SITE/
+```
+
+이후 기존 사이트 배포 명령과 `protect verify`로 직접 접근 차단을 확인합니다.
