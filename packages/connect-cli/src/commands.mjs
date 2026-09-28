@@ -6,7 +6,7 @@ import { ConnectApi } from './api.mjs';
 import { ConnectDataApi } from './data-api.mjs';
 import { validateDataOpenApi } from './discovery.mjs';
 import { DEFAULT_DATA_ORIGIN, parseDataScopes, sameScopes } from './scopes.mjs';
-import { inspectProtection } from './protection.mjs';
+import { inspectProtection, installProtection } from './protection.mjs';
 import { verifyProtection } from './protection-verify.mjs';
 
 export const DEFAULT_AUTH_ORIGIN = 'https://nakwol-auth.sepsd21.workers.dev';
@@ -97,7 +97,7 @@ export async function initProject(options = {}) {
   const app = await resolveApp(root, project, existingConfig, authApi, options);
   const dataState = (await dataApi.setScopes(app.client_id, desired.dataScopes)).data;
   const install = await installIntegration(root, project, app.client_id, desired);
-  const config = await writeProjectConfig(root, {
+  let config = await writeProjectConfig(root, {
     clientId: app.client_id,
     framework: project.framework,
     redirectUris: app.redirect_uris,
@@ -107,11 +107,19 @@ export async function initProject(options = {}) {
     ...(existingConfig?.protection ? { protection: existingConfig.protection } : {}),
     ...desired,
   });
-  const doctor = await doctorProject({ ...options, url: undefined, connectionOnly: true, root, authOrigin, dataOrigin: desired.dataOrigin, offline: false });
-  if (!doctor.ok) throw new Error(`Connect 설치 검증 실패: ${doctor.checks.filter((c) => !c.ok).map((c) => c.name).join(', ')}`);
-  output(`NAKWOL Connect + DATA 연결 완료: ${app.client_id} (${config.authMode}). 서버 보호: ${doctor.protectionStatus}.`);
-  if (config.authMode === 'required') output('HTML/파일 직접 접근 차단은 protect install → 배포 → protect verify가 필요합니다. Embed 검사 통과는 보호 완료가 아닙니다.');
-  return { clientId: app.client_id, project, config, app, data: dataState, doctor };
+  let protectionInstall = null;
+  if (config.authMode === 'required' && options.provider) {
+    protectionInstall = await installProtection({ ...options, root });
+    config = await readProjectConfig(root);
+  }
+  const doctor = await doctorProject({ ...options, root, authOrigin, dataOrigin: desired.dataOrigin, offline: false });
+  const nextSteps = doctor.ok ? [] : protectionInstall?.nextSteps || [
+    '서버 보호가 없으면 protect install --provider cloudflare-workers --assets dist --url https://SITE/ 를 실행하세요. Pages는 --provider cloudflare-pages --project-name NAME을 사용하세요. 그 외 호스팅에는 별도 서버 연동이 필요합니다.',
+    '보호 파일을 포함해 빌드·배포한 뒤 doctor --url https://SITE/ 를 실행하세요. 기존 공개 주소도 protect verify --alternate-origins로 검사하세요.',
+  ];
+  output(`NAKWOL Connect ${doctor.ok ? '설치 검증 통과' : '설치 미완료'}: ${app.client_id} (${config.authMode}). 서버 보호: ${doctor.protectionStatus}.`);
+  for (const step of nextSteps) output(step);
+  return { ok:doctor.ok, clientId: app.client_id, project, config, app, data: dataState, doctor, nextSteps };
 }
 
 export async function doctorProject(options = {}) {
@@ -161,8 +169,11 @@ export async function doctorProject(options = {}) {
     }
   }
   const protection = await inspectProtection(root, config);
-  if (config?.protection || (config?.authMode === 'required' && !options.connectionOnly)) checks.push({ name:'server_gate', ok:protection.ok, detail:protection.detail });
-  const blocking = options.url && !options.offline ? await verifyProtection({ ...options, root }) : null;
+  const requiresProtection = config?.authMode === 'required';
+  if (config?.protection || requiresProtection) checks.push({ name:'server_gate', ok:protection.ok, detail:protection.detail });
+  const verifyUrl = options.url || (requiresProtection ? config?.protection?.siteUrl : undefined);
+  const blocking = (requiresProtection || config?.protection) && verifyUrl && !options.offline ? await verifyProtection({ ...options, root, url:verifyUrl }) : null;
+  if (requiresProtection) checks.push({ name:'anonymous_blocking', ok:blocking?.ok === true, detail:blocking ? blocking.protectionStatus : '배포 사이트의 비로그인 차단 검증이 필요합니다. 로컬 설정만으로 설치를 완료하지 않습니다.' });
   if (blocking) checks.push(...blocking.checks);
   return { ok:checks.every((item) => item.ok), checks, config, project, marker,
     protectionStatus: blocking?.protectionStatus || (protection.ok ? 'configured-not-verified' : 'unprotected'),
@@ -216,7 +227,7 @@ export async function syncProject(options = {}) {
   const dataState = (await dataApi.setScopes(config.clientId, desired.dataScopes)).data;
   const install = await installIntegration(root, project, config.clientId, desired);
   const updated = await writeProjectConfig(root, { ...config, accessPolicy:app.access_policy, framework:project.framework, redirectUris:app.redirect_uris, integration:install.integration, ...desired });
-  const doctor = await doctorProject({ ...options, url:undefined, connectionOnly:true, root, dataOrigin:desired.dataOrigin, offline:false });
+  const doctor = await doctorProject({ ...options, root, dataOrigin:desired.dataOrigin, offline:false });
   return { ok:doctor.ok, clientId:config.clientId, config:updated, data:dataState, changedFiles:install.changedFiles, doctor };
 }
 

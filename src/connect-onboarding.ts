@@ -47,7 +47,7 @@ npx --yes nakwol-connect doctor --json</pre></div></div>
 
   <section class="panel" id="server-protection">
     <h2>HTML·파일 직접 주소까지 차단하기</h2>
-    <p>자동 설치 지원 환경은 <strong>Cloudflare Workers Static Assets의 정적 빌드</strong>입니다. 별도 API 서버, SSR, 기존 Worker 로직, Vercel, Pages Functions는 자동 연결 대상이 아닙니다. 지원되지 않는 환경을 보호 완료로 처리하지 않습니다.</p>
+    <p>자동 설치 지원 환경은 <strong>Cloudflare Workers Static Assets와 Cloudflare Pages의 정적 빌드</strong>입니다. 별도 API 서버, SSR, 기존 Worker 로직, Vercel은 자동 연결 대상이 아닙니다. required의 init·sync·doctor는 실제 배포 차단 검증 전까지 설치 미완료(종료 코드 1)입니다.</p>
     <p>아래 YOUR-SITE를 실제 HTTPS 사이트 루트로 바꾸세요. 먼저 사이트를 빌드해 index.html이 들어 있는 dist 폴더를 준비합니다. 프로젝트 루트 전체나 비밀 설정 폴더를 지정하지 마세요.</p>
     <pre>npx --yes nakwol-connect init --auth required --access-policy member --url https://YOUR-SITE/
 npx --yes nakwol-connect protect install --provider cloudflare-workers --assets dist --url https://YOUR-SITE/</pre>
@@ -59,6 +59,8 @@ npx --yes nakwol-connect doctor --url https://YOUR-SITE/ --json</pre>
     <p>Secret에는 무작위 32자 이상의 세션 암호화 키를 입력합니다. Discord 봇 토큰이 아닙니다. 소스나 채팅에 기록하지 마세요. Worker 이름은 client ID로 생성되므로 기존 Worker와 충돌하는지 확인하세요. Cloudflare 계정 권한과 배포는 개발자가 관리합니다. 사용자 지정 도메인은 해당 Worker에 연결해야 합니다.</p>
     <p><strong>CI도 --config wrangler.nakwol.json으로 배포해야 합니다.</strong> 예전 정적 배포 명령으로 배포하면 게이트가 적용되지 않습니다. 생성된 설정은 모든 자산에 run_worker_first=true를 사용하고, 등록한 사이트 origin 외에는 거부합니다.</p>
     <h3>검증 결과 읽기</h3>
+    <p>Cloudflare Pages는 <code>protect install --provider cloudflare-pages --project-name 실제프로젝트명 --assets dist --url https://사이트/</code>를 사용하세요. <code>wrangler pages secret put NAKWOL_SESSION_SECRET --project-name 실제프로젝트명</code>으로 키를 등록하고 생성된 dist/_worker.js와 dist/_routes.json을 함께 배포합니다. Pages Functions의 한도 초과 동작은 fail closed로 설정하세요. 예전 배포 URL은 별도로 비공개화해야 합니다.</p>
+    <p>doctor는 --url이 없어도 저장된 운영 주소를 검사합니다. init에도 --provider와 --assets를 지정하면 서버 보호까지 설치합니다. 파일 생성만으로 보호 완료를 표시하지 않습니다.</p>
     <ul>
       <li>configured: 설치만 완료. configured-not-verified: 실제 배포 차단 미검증.</li>
       <li>anonymous-blocking-verified: 현재 빌드 경로의 비로그인 GET·HEAD·Range·잘못된 쿠키 차단 검증 통과.</li>
