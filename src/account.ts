@@ -3,6 +3,7 @@ import type { Env } from './types';
 import { clearSessionCookie, jsonError, parseCookies } from './http';
 import { authenticateAccessToken, deleteSession, getUserWithMembership } from './store';
 import { listConnectedServices } from './account-store';
+import { registerAccountRecoveryRoutes } from './account-recovery';
 
 export const ACCOUNT_CLIENT_ID = 'nakwol-account-center';
 
@@ -31,6 +32,10 @@ export function accountPageHtml(): string {
       <div class="brand"><small>落月 · NAKWOL</small><h1>내 낙월 계정</h1></div>
       <p class="intro">내 로그인 정보와 낙월 이용 상태를 확인하세요.</p>
     </header>
+    <section id="service-recovery" class="card recovery" hidden aria-live="polite">
+      <h2 id="recovery-title">접속 문제 해결</h2><p id="recovery-message"></p>
+      <a id="return-service" class="button secondary" hidden>서비스로 돌아가기</a>
+    </section>
     <p id="loading" class="muted" role="status">계정 정보를 불러오는 중입니다…</p>
     <section id="logged-out" class="notice" hidden>
       <h2>Discord 계정으로 시작하세요</h2>
@@ -95,7 +100,43 @@ export function accountPageHtml(): string {
     const servicesRoot = document.querySelector('#services');
     const permissionDetail = document.querySelector('#permission-detail');
     const globalLogout = document.querySelector('#global-logout');
-    const selectedClientId = new URLSearchParams(location.search).get('client_id');
+    const params = new URLSearchParams(location.search);
+    const selectedClientId = params.get('client_id');
+    const recoveryKey = 'nakwol:account:recovery';
+    let recoveryClientId = params.get('recovery') === '1' ? selectedClientId : null;
+    try {
+      if (recoveryClientId) sessionStorage.setItem(recoveryKey, JSON.stringify({ clientId: recoveryClientId, at: Date.now() }));
+      else if (params.has('code') || params.has('error')) {
+        const saved = JSON.parse(sessionStorage.getItem(recoveryKey) || 'null');
+        if (saved && Date.now() - saved.at < 30 * 60 * 1000) recoveryClientId = saved.clientId;
+      } else sessionStorage.removeItem(recoveryKey);
+    } catch {}
+    async function loadRecovery() {
+      if (!recoveryClientId) return;
+      const section = document.querySelector('#service-recovery');
+      const message = document.querySelector('#recovery-message');
+      section.hidden = false;
+      try {
+        const token = auth.getAccessToken();
+        const response = await fetch('/account/api/recovery?client_id=' + encodeURIComponent(recoveryClientId), {
+          headers: token ? { Authorization: 'Bearer ' + token } : {},
+        });
+        const payload = await response.json();
+        if (!response.ok || !payload.ok) throw new Error('recovery unavailable');
+        const recoveryLocation = new URL(location.href);
+        recoveryLocation.searchParams.set('client_id', recoveryClientId);
+        recoveryLocation.searchParams.set('recovery', '1');
+        history.replaceState({}, document.title, recoveryLocation.pathname + recoveryLocation.search + recoveryLocation.hash);
+        document.querySelector('#recovery-title').textContent = payload.data.name + ' 접속 문제 해결';
+        message.textContent = payload.data.message;
+        const back = document.querySelector('#return-service');
+        if (payload.data.url) { back.href = payload.data.url; back.hidden = false; }
+        back.addEventListener('click', () => { try { sessionStorage.removeItem(recoveryKey); } catch {} });
+      } catch { message.textContent = '서비스 정보를 확인하지 못했습니다. 계정을 확인한 뒤 원래 서비스에서 다시 시도해 주세요.'; }
+    }
+    function saveRecovery() {
+      if (recoveryClientId) { try { sessionStorage.setItem(recoveryKey, JSON.stringify({ clientId: recoveryClientId, at: Date.now() })); } catch {} }
+    }
 
     function hideAllStates() {
       document.querySelector('#loading').hidden = true;
@@ -240,7 +281,7 @@ export function accountPageHtml(): string {
 
     async function startLogin(button) {
       button.disabled = true;
-      try { auth.clearLocalState(); await auth.login(); }
+      try { saveRecovery(); auth.clearLocalState(); await auth.login(); }
       catch { button.disabled = false; showError('로그인을 시작하지 못했습니다. 다시 시도해 주세요.'); }
     }
     loginButton.addEventListener('click', () => startLogin(loginButton));
@@ -254,6 +295,7 @@ export function accountPageHtml(): string {
         const response = await fetch('/account/api/recheck', { method: 'POST', headers: { Authorization: 'Bearer ' + (token || '') } });
         if (response.status === 401) { showError('로그인이 만료되었습니다. 다시 로그인해 주세요.'); return; }
         if (!response.ok) throw new Error('recheck failed');
+        saveRecovery();
         auth.clearLocalState();
         await auth.login();
       } catch { status.textContent = '인증을 시작하지 못했습니다. 잠시 후 다시 시도해 주세요.'; }
@@ -285,12 +327,14 @@ export function accountPageHtml(): string {
     } catch (error) {
       showError(error instanceof Error ? error.message : String(error));
     }
+    await loadRecovery();
   </script>
 </body>
 </html>`;
 }
 
 export function registerAccountRoutes(app: Hono<{ Bindings: Env }>): void {
+  registerAccountRecoveryRoutes(app, ACCOUNT_CLIENT_ID);
   app.get('/account', (c) => c.html(accountPageHtml()));
 
   app.use('/account/api/*', async (c, next) => { c.header('Cache-Control', 'no-store'); await next(); });
