@@ -26,6 +26,9 @@ export async function writeProjectConfig(root, config) {
     authMode: normalizeAuthMode(config.authMode),
     dataOrigin: String(config.dataOrigin || DEFAULT_DATA_ORIGIN).replace(/\/$/, ''),
     dataScopes: parseDataScopes(config.dataScopes || []),
+    accessPolicy: config.accessPolicy || 'member',
+    authOrigin: config.authOrigin || 'https://nakwol-auth.sepsd21.workers.dev',
+    ...(config.protection ? { protection: config.protection } : {}),
   };
   await writeFile(join(root, PROJECT_CONFIG_FILE), `${JSON.stringify(value, null, 2)}\n`);
   return value;

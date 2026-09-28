@@ -24,24 +24,52 @@ export function connectOnboardingPageHtml(): string {
     <div class="eyebrow">落月 · DEVELOPER</div>
     <h1>NAKWOL Connect 시작하기</h1>
     <p>낙월 서비스에 Discord 기반 로그인과 공통 DATA를 붙이는 공식 연동 경로입니다. 각 서비스는 Discord OAuth나 Client Secret을 직접 다루지 않고 중앙 NAKWOL AUTH와 Connect를 사용합니다.</p>
-    <div class="chips"><span class="chip">AUTH 0.2.0</span><span class="chip">Web SDK 0.3.0</span><span class="chip">Connect CLI 0.5.0</span><span class="chip">required + member 기본값</span><span class="chip">자동 SSO</span><span class="chip">PKCE S256</span><span class="chip">Discord secret 불필요</span></div>
+    <div class="chips"><span class="chip">AUTH 0.2.0</span><span class="chip">Web SDK 0.3.0</span><span class="chip">Connect CLI 0.6.0</span><span class="chip">required + member 기본값</span><span class="chip">자동 SSO</span><span class="chip">PKCE S256</span><span class="chip">Discord secret 불필요</span></div>
   </section>
 
   <section class="panel">
     <h2>기본 원칙</h2>
-    <div class="callout"><strong>NAKWOL Connect는 기본 비공개입니다.</strong><br>별도 옵션 없이 설치하면 <code>auth=required</code> + <code>access-policy=member</code>가 적용됩니다. 로그인하지 않았거나 낙월 맹원이 아닌 사용자는 페이지를 사용할 수 없습니다. 테스트 페이지나 정적 Cloudflare Pages도 자동으로 공개 취급하지 않습니다.</div>
+    <div class="callout"><strong>member = 중앙에서 정한 시즌3 역할 보유자입니다.</strong><br>개발자는 역할 ID를 입력하지 않고 <code>member</code>만 선택합니다. 현재 시즌3 역할은 <code>1553600098661957643</code>이며 시즌1·시즌2·Discord 관리자 역할은 대체 조건이 아닙니다. 개발자는 본인 앱의 member/guest 정책을 선택하고, admin 정책과 추가 역할 설정은 AUTH 운영자가 관리합니다.</div>
+    <p><strong>Embed 설치와 서버 보호는 다릅니다.</strong> 기본값 <code>auth=required</code> + <code>access-policy=member</code>는 로그인 및 권한 조건입니다. 브라우저에서 화면만 잠그면 이미 전달된 HTML·파일은 보호되지 않습니다. 아래 서버 게이트를 설치·배포하고 직접 주소 차단을 검증해야 합니다.</p>
   </section>
 
   <section class="panel">
     <h2>가장 빠른 시작</h2>
     <div class="step"><div class="num">1</div><div><strong>NAKWOL developer 권한을 먼저 받습니다.</strong><div class="muted">NAKWOL 운영자는 /admin/developers에서 Discord 사용자 ID를 미리 허가할 수 있습니다. 대상자가 아직 NAKWOL에 로그인한 적이 없어도 되며 Discord 서버 역할과는 무관합니다. 첫 Connect CLI 승인 때 해당 Discord 계정과 자동 연결됩니다.</div></div></div>
     <div class="step"><div class="num">2</div><div><strong>프로젝트 루트에서 공식 CLI를 실행합니다.</strong><pre>npx --yes nakwol-connect init
-npx --yes nakwol-connect doctor --json</pre><div class="muted">이 명령 자체가 기본적으로 로그인 필수 + 낙월 맹원 전용입니다.</div></div></div>
+npx --yes nakwol-connect doctor --json</pre><div class="muted">이 단계는 중앙 앱과 Embed 연결입니다. required 사이트에 서버 게이트가 없으면 doctor는 실패하며, 아래 보호 설치가 필요합니다.</div></div></div>
     <div class="step"><div class="num">3</div><div><strong>DATA도 필요하면 필요한 scope만 추가합니다.</strong><pre>npx --yes nakwol-connect init --scopes roster:read,decks:read
 npx --yes nakwol-connect data describe --json
 npx --yes nakwol-connect doctor --json</pre></div></div>
     <div class="step"><div class="num">4</div><div><strong>공개 서비스일 때만 명시적으로 완화합니다.</strong><pre>npx --yes nakwol-connect init --auth optional --access-policy guest</pre><div class="muted"><code>optional</code>/<code>guest</code>는 기본값이 아닙니다. 제품 요구사항이 공개 서비스일 때만 사용합니다.</div></div></div>
-    <div class="callout">최초 한 서비스에서 Discord 로그인을 완료하면 중앙 NAKWOL SSO 세션이 생깁니다. 같은 브라우저의 다른 required NAKWOL Connect 서비스는 로그인 버튼을 다시 누르지 않고 자동으로 자기 서비스용 access token을 발급받습니다.</div>
+    <div class="callout">최초 Discord 로그인 후 같은 브라우저의 다른 서비스는 중앙 SSO를 재사용합니다. 단, 각 사이트의 정책을 통과해야 해당 사이트용 토큰을 받습니다.</div>
+  </section>
+
+  <section class="panel" id="server-protection">
+    <h2>HTML·파일 직접 주소까지 차단하기</h2>
+    <p>자동 설치 지원 환경은 <strong>Cloudflare Workers Static Assets의 정적 빌드</strong>입니다. 별도 API 서버, SSR, 기존 Worker 로직, Vercel, Pages Functions는 자동 연결 대상이 아닙니다. 지원되지 않는 환경을 보호 완료로 처리하지 않습니다.</p>
+    <p>아래 YOUR-SITE를 실제 HTTPS 사이트 루트로 바꾸세요. 먼저 사이트를 빌드해 index.html이 들어 있는 dist 폴더를 준비합니다. 프로젝트 루트 전체나 비밀 설정 폴더를 지정하지 마세요.</p>
+    <pre>npx --yes nakwol-connect init --auth required --access-policy member --url https://YOUR-SITE/
+npx --yes nakwol-connect protect install --provider cloudflare-workers --assets dist --url https://YOUR-SITE/</pre>
+    <p>설치 후 사이트를 <strong>다시 빌드</strong>합니다. 생성된 wrangler.nakwol.json과 .nakwol/server/를 사용해 배포합니다. 기존 앱에 콜백이 없다면 먼저 <code>nakwol-connect add-url https://YOUR-SITE/</code>를 실행하세요.</p>
+    <pre>npx wrangler secret put NAKWOL_SESSION_SECRET --config wrangler.nakwol.json
+npx wrangler deploy --config wrangler.nakwol.json
+npx --yes nakwol-connect protect verify --url https://YOUR-SITE/ --json
+npx --yes nakwol-connect doctor --url https://YOUR-SITE/ --json</pre>
+    <p>Secret에는 무작위 32자 이상의 세션 암호화 키를 입력합니다. Discord 봇 토큰이 아닙니다. 소스나 채팅에 기록하지 마세요. Worker 이름은 client ID로 생성되므로 기존 Worker와 충돌하는지 확인하세요. Cloudflare 계정 권한과 배포는 개발자가 관리합니다. 사용자 지정 도메인은 해당 Worker에 연결해야 합니다.</p>
+    <p><strong>CI도 --config wrangler.nakwol.json으로 배포해야 합니다.</strong> 예전 정적 배포 명령으로 배포하면 게이트가 적용되지 않습니다. 생성된 설정은 모든 자산에 run_worker_first=true를 사용하고, 등록한 사이트 origin 외에는 거부합니다.</p>
+    <h3>검증 결과 읽기</h3>
+    <ul>
+      <li>configured: 설치만 완료. configured-not-verified: 실제 배포 차단 미검증.</li>
+      <li>anonymous-blocking-verified: 현재 빌드 경로의 비로그인 GET·HEAD·Range·잘못된 쿠키 차단 검증 통과.</li>
+      <li>401/403 + 공식 게이트 응답 + no-store만 통과합니다. 200·리다이렉트·404·503·시간 초과는 실패입니다.</li>
+      <li>시즌3 일반 계정의 정상 로그인, 비멤버 거부, 로그아웃 후 차단은 실제 브라우저로 추가 확인하세요.</li>
+    </ul>
+    <pre>npx --yes nakwol-connect protect verify --url https://YOUR-SITE/ --alternate-origins https://OLD-SITE/ --paths /private-route --json</pre>
+    <p>알고 있는 이전 배포 주소도 검사하세요. 명시하지 않은 도메인이나 공개 스토리지는 자동 검사하지 않습니다. 과거 공개 배포·원본 파일 주소도 비공개화하거나 제거해야 합니다. 삭제된 주소의 404/DNS 오류는 별도 삭제 증거로 확인합니다.</p>
+    <h3>로그인·권한 문제가 생겼다면</h3>
+    <p>401은 로그인 필요, 403은 접근 권한 부족, 503은 설정/인증 서버 오류입니다. 로그인 반복 시 정확한 콜백 URL·사이트 쿠키 허용·Secret·실제 배포 명령을 확인하세요. 권한 부족 시 시즌3와 추가 역할 조건을 확인한 뒤 다시 Discord 로그인하세요.</p>
+    <p>봇 없이 OAuth로 역할을 읽습니다. 기존 SSO는 저장된 역할을 재사용하므로 Discord 역할 제거가 즉시 반영되는 것은 아닙니다. 중앙 세션은 비활동 10일/최대 30일, 앱 토큰은 1시간입니다. 긴급 권한 회수는 AUTH 운영자가 중앙에서 처리해야 합니다.</p>
   </section>
 
   <section class="panel">
@@ -61,6 +89,10 @@ Discord OAuth나 PKCE를 직접 구현하지 말고 반드시 공식 CLI와 Univ
 - 로그인했지만 낙월 맹원이 아니면 페이지를 공개하지 말고 access denied 처리
 
 일반적인 설치는 npx --yes nakwol-connect init 을 사용한다.
+member는 중앙의 시즌3 기준이며 역할 ID를 하드코딩하지 마.
+Embed만으로 비공개 완료라고 보고하지 마. 지원되는 정적 Worker는 protect install로 서버 게이트를 구성하고,
+재빌드 및 wrangler.nakwol.json 배포 후 protect verify --url 실제주소 --json으로 직접 접근 차단까지 검사해.
+미지원 서버/호스팅 환경은 명확히 보고하고, HTML/JSON/다운로드 파일과 이전 배포 주소를 함께 확인해.
 --auth optional 또는 --access-policy guest는 내가 공개 서비스라고 명시적으로 요청한 경우에만 사용한다.
 테스트 페이지, 정적 사이트, Cloudflare Pages라는 이유만으로 optional/guest를 추론하지 마.
 
@@ -115,7 +147,7 @@ window.NAKWOL_CONNECT.logout()</pre>
     theme: 'inherit',
   });
 &lt;/script&gt;</pre>
-    <p class="muted">페이지 잠금까지 필요한 신규 서비스는 Universal Embed 사용을 권장합니다. SDK를 직접 사용하는 경우 전체 페이지 가드는 애플리케이션에서 직접 구현해야 합니다.</p>
+    <p class="muted">브라우저 가드는 화면 표시만 제어합니다. 직접 주소의 자료 전송 차단은 위 서버 보호 설치가 필요합니다. 공식 설치는 서버 로그아웃도 연결합니다. 직접 SDK를 사용하는 별도 구현은 서버 세션 연결도 필요합니다.</p>
   </section>
 
   <section class="panel">

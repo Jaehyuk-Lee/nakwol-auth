@@ -118,8 +118,8 @@
       guard.copy.textContent = denied
         ? '이 서비스는 허용된 낙월 사용자만 이용할 수 있습니다.'
         : `인증 오류: ${code}`;
-      guard.button.textContent = '다시 로그인';
-      guard.button.hidden = denied;
+      guard.button.textContent = denied ? 'Discord로 권한 다시 확인' : '다시 로그인';
+      guard.button.hidden = false;
     }
   };
 
@@ -171,8 +171,24 @@
   const start = async () => {
     try {
       if (authRequired && !restoredUser) ensureAuthGuard();
-      const sdk = await import(`${authOrigin}/sdk/v0.3.0/nakwol-auth-web.js`);
+      const sdk = await import(`${authOrigin}/sdk/v0.3.1/nakwol-auth-web.js`);
       const client = new sdk.NakwolAuthClient({ clientId, redirectUri, authOrigin, autoSso });
+      if (script.dataset.serverGate === 'true') {
+        const rememberReturnPage = () => {
+          try {
+            sessionStorage.setItem(`nakwol:server:return:${clientId}`, JSON.stringify({ path:location.pathname + location.search + location.hash, at:Date.now() }));
+          } catch { /* The login bridge falls back to the site root without storage. */ }
+        };
+        client.addEventListener('ssoprobe', rememberReturnPage);
+        client.addEventListener('loginstart', rememberReturnPage);
+        const localLogout = client.logout.bind(client);
+        client.logout = async (options = {}) => {
+          const result = await fetch('/__nakwol/logout', { method:'POST', cache:'no-store', signal:AbortSignal.timeout(10000) });
+          if (!result.ok) throw new Error('서버 로그아웃에 실패했습니다. 다시 시도해 주세요.');
+          await localLogout(options);
+          if (result.headers.get('X-Nakwol-Revoke') === 'failed') dispatch('nakwol-error', { code:'SERVER_REVOKE_FAILED', message:'이 브라우저의 로그아웃은 완료했지만 서버 토큰 폐기를 확인하지 못했습니다.' });
+        };
+      }
       activeClient = client;
 
       const enforceRequiredAuth = async (user) => {
@@ -303,6 +319,8 @@
       });
       client.addEventListener('error', (event) => {
         rememberVerifiedUser(null);
+        api.user = null;
+        delete window.NAKWOL_AUTH_USER;
         if (authRequired) setAuthGuardState('error', event.detail || null);
         dispatch('nakwol-error', event.detail || null);
       });

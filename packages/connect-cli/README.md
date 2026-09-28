@@ -1,10 +1,37 @@
-# nakwol-connect
+### 서버 보호 설치와 검증 (Connect 0.6)
+
+**member는 중앙의 시즌3 역할 보유자를 뜻합니다. 개발자는 역할 ID를 입력하지 않습니다.**
+개발자 권한을 받은 앱 소유자는 member/guest를 선택할 수 있으며 admin 정책과 추가 역할은 AUTH 운영자가 설정합니다.
+
+**Embed만으로 HTML·파일이 비공개가 되지는 않습니다.** 직접 주소 접근 차단은 서버 게이트 설치와 배포가 필요합니다.
+현재 자동 지원은 Cloudflare Workers Static Assets의 정적 빌드입니다. SSR/API/다른 호스팅은 자동 보호 완료로 처리하지 않습니다.
+
+```bash
+npx --yes nakwol-connect init --auth required --access-policy member --url https://YOUR-SITE/
+# 먼저 사이트를 빌드해 dist/index.html을 준비하세요.
+npx --yes nakwol-connect protect install --provider cloudflare-workers --assets dist --url https://YOUR-SITE/
+# 설치 후 다시 빌드하세요. 아래 Secret에는 무작위 32자 이상 키를 입력하세요.
+npx wrangler secret put NAKWOL_SESSION_SECRET --config wrangler.nakwol.json
+npx wrangler deploy --config wrangler.nakwol.json
+npx --yes nakwol-connect protect verify --url https://YOUR-SITE/ --json
+npx --yes nakwol-connect doctor --url https://YOUR-SITE/ --json
+```
+
+init의 연결 성공은 보호 완료가 아닙니다. required 사이트의 doctor는 서버 게이트가 없으면 실패합니다.
+configured는 설치만 완료, anonymous-blocking-verified는 검사한 주소·경로의 비로그인 차단 검증 통과입니다.
+GET·HEAD·Range·잘못된 쿠키를 검사하며 200·302·404·503은 성공으로 인정하지 않습니다.
+이전 배포 주소는 --alternate-origins로 추가하세요. 실제 시즌3/비멤버 로그인과 로그아웃은 브라우저로 별도 확인합니다.
+운영 로그인에는 봇이 필요 없으며, OAuth 때 저장한 역할을 쓰므로 Discord 역할 제거가 즉시 반영되지는 않습니다.
+
+상세 절차: [온라인 설치 안내](https://nakwol-auth.sepsd21.workers.dev/connect#server-protection)
+
+ nakwol-connect
 
 Official agent-first CLI for connecting web projects to NAKWOL AUTH and NAKWOL DATA.
 
 ## Protected by default
 
-NAKWOL Connect is intentionally private-by-default. Unless the developer explicitly asks for a public service, preserve both defaults:
+NAKWOL Connect defaults to required authentication. Server protection must be installed separately. Unless the developer explicitly asks for a public service, preserve both defaults:
 
 ```text
 auth=required

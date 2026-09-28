@@ -1,4 +1,31 @@
-# NAKWOL Platform Core
+### 서버 보호 설치와 검증 (Connect 0.6)
+
+**member는 중앙의 시즌3 역할 보유자를 뜻합니다. 개발자는 역할 ID를 입력하지 않습니다.**
+개발자 권한을 받은 앱 소유자는 member/guest를 선택할 수 있으며 admin 정책과 추가 역할은 AUTH 운영자가 설정합니다.
+
+**Embed만으로 HTML·파일이 비공개가 되지는 않습니다.** 직접 주소 접근 차단은 서버 게이트 설치와 배포가 필요합니다.
+현재 자동 지원은 Cloudflare Workers Static Assets의 정적 빌드입니다. SSR/API/다른 호스팅은 자동 보호 완료로 처리하지 않습니다.
+
+```bash
+npx --yes nakwol-connect init --auth required --access-policy member --url https://YOUR-SITE/
+# 먼저 사이트를 빌드해 dist/index.html을 준비하세요.
+npx --yes nakwol-connect protect install --provider cloudflare-workers --assets dist --url https://YOUR-SITE/
+# 설치 후 다시 빌드하세요. 아래 Secret에는 무작위 32자 이상 키를 입력하세요.
+npx wrangler secret put NAKWOL_SESSION_SECRET --config wrangler.nakwol.json
+npx wrangler deploy --config wrangler.nakwol.json
+npx --yes nakwol-connect protect verify --url https://YOUR-SITE/ --json
+npx --yes nakwol-connect doctor --url https://YOUR-SITE/ --json
+```
+
+init의 연결 성공은 보호 완료가 아닙니다. required 사이트의 doctor는 서버 게이트가 없으면 실패합니다.
+configured는 설치만 완료, anonymous-blocking-verified는 검사한 주소·경로의 비로그인 차단 검증 통과입니다.
+GET·HEAD·Range·잘못된 쿠키를 검사하며 200·302·404·503은 성공으로 인정하지 않습니다.
+이전 배포 주소는 --alternate-origins로 추가하세요. 실제 시즌3/비멤버 로그인과 로그아웃은 브라우저로 별도 확인합니다.
+운영 로그인에는 봇이 필요 없으며, OAuth 때 저장한 역할을 쓰므로 Discord 역할 제거가 즉시 반영되지는 않습니다.
+
+상세 절차: [서버 보호 안내](docs/CONNECT_SERVER_PROTECTION.md)
+
+ NAKWOL Platform Core
 
 낙월(落月) 서비스들이 **로그인과 공통 게임 데이터를 같은 방식으로 재사용**하도록 만든 중앙 플랫폼입니다.
 
@@ -10,7 +37,7 @@
 
 ## 기본 정책: 낙월 맹원 전용
 
-NAKWOL Connect는 **protected by default**입니다.
+NAKWOL Connect의 **기본 인증 정책은 required + member**입니다. 서버 보호 여부와는 별도로 확인합니다.
 
 기본 설치값은 다음 두 가지가 함께 적용됩니다.
 
@@ -33,7 +60,7 @@ access_policy = member
 
 **https://nakwol-auth.sepsd21.workers.dev/connect**
 
-현재 공식 CLI는 **`nakwol-connect@0.5.0`**입니다.
+현재 공식 CLI는 **`nakwol-connect@0.6.0`**입니다.
 
 프로젝트 루트에서:
 
@@ -42,7 +69,7 @@ npx --yes nakwol-connect init
 npx --yes nakwol-connect doctor --json
 ```
 
-이 기본 명령만으로 **로그인 필수 + 낙월 맹원 전용**으로 설치됩니다.
+이 기본 명령은 **로그인 필수 + 시즌3 정책의 Embed**를 설치합니다. 서버 보호는 위 절차를 이어서 진행합니다.
 
 DATA도 함께 쓰는 경우 필요한 scope만 선언합니다.
 
@@ -160,8 +187,8 @@ NAKWOL 운영자는 `https://nakwol-auth.sepsd21.workers.dev/admin/developers`�
 
 ### NAKWOL Connect
 
-- CLI/distribution: **Connect 0.5.0**
-- npm package: **`nakwol-connect@0.5.0`**
+- CLI/distribution: **Connect 0.6.0**
+- npm package: **`nakwol-connect@0.6.0`**
 - 기본값: **`required + member`**
 - 앱 등록/재사용, callback 등록, AUTH/DATA 자동 연동, doctor, DATA OpenAPI discovery를 담당합니다.
 

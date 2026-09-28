@@ -1,0 +1,128 @@
+import {
+  DEFAULT_NAKWOL_AUTH_ORIGIN,
+  NakwolAuthError,
+  NakwolAuthClient as NakwolAuthClientV02,
+  mountNakwolAuthWidget,
+  mountNakwolIdentityMenu,
+} from '../v0.2.0/nakwol-auth-web.js';
+
+export const NAKWOL_AUTH_SDK_VERSION = '0.3.1';
+export {
+  DEFAULT_NAKWOL_AUTH_ORIGIN,
+  NakwolAuthError,
+  mountNakwolAuthWidget,
+  mountNakwolIdentityMenu,
+};
+
+function base64Url(bytes) {
+  let binary = '';
+  for (const byte of bytes) binary += String.fromCharCode(byte);
+  return btoa(binary).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/g, '');
+}
+
+function randomValue(length = 32) {
+  const bytes = new Uint8Array(length);
+  crypto.getRandomValues(bytes);
+  return base64Url(bytes);
+}
+
+async function sha256Base64Url(value) {
+  const data = new TextEncoder().encode(value);
+  const digest = await crypto.subtle.digest('SHA-256', data);
+  return base64Url(new Uint8Array(digest));
+}
+
+export class NakwolAuthClient extends NakwolAuthClientV02 {
+  constructor(options = {}) {
+    super(options);
+    this.autoSso = Boolean(options.autoSso);
+    this.ssoProbeMiss = false;
+  }
+
+  async login() {
+    this.storage.removeItem(this.key('sso_suppressed'));
+    return super.login();
+  }
+
+  clearDeniedLogin(error) {
+    if (error?.code === 'access_denied' || error?.code === 'ACCESS_DENIED') {
+      this.clearLocalState();
+      this.storage.removeItem(this.key('connect_verified_user'));
+      this.storage.setItem(this.key('sso_suppressed'), '1');
+    }
+  }
+
+  async getMe() {
+    try { return await super.getMe(); }
+    catch (error) { this.clearDeniedLogin(error); throw error; }
+  }
+
+  async logout(options = {}) {
+    this.storage.setItem(this.key('sso_suppressed'), '1');
+    return super.logout(options);
+  }
+
+  async startSilentSso() {
+    const verifier = randomValue(48);
+    const state = randomValue(24);
+    const challenge = await sha256Base64Url(verifier);
+    this.storage.setItem(this.key('transaction'), JSON.stringify({ verifier, state, createdAt: Date.now(), silent: true }));
+
+    const url = new URL(`${this.authOrigin}/authorize`);
+    url.searchParams.set('response_type', 'code');
+    url.searchParams.set('client_id', this.clientId);
+    url.searchParams.set('redirect_uri', this.redirectUri);
+    url.searchParams.set('code_challenge', challenge);
+    url.searchParams.set('code_challenge_method', 'S256');
+    url.searchParams.set('state', state);
+    url.searchParams.set('prompt', 'none');
+    this.emit('ssoprobe', { url: url.toString() });
+    location.replace(url.toString());
+    return new Promise(() => {});
+  }
+
+  async handleCallback() {
+    const params = new URLSearchParams(location.search);
+    if (params.get('error') === 'login_required') {
+      const state = params.get('state');
+      let transaction = null;
+      try {
+        transaction = JSON.parse(this.storage.getItem(this.key('transaction')) || 'null');
+      } catch {
+        transaction = null;
+      }
+
+      this.cleanCallbackUrl();
+      this.storage.removeItem(this.key('transaction'));
+
+      if (!transaction?.state || state !== transaction.state) {
+        const authError = new NakwolAuthError('STATE_OR_PKCE_MISMATCH', '자동 SSO 확인 상태가 일치하지 않습니다.');
+        this.emit('error', authError);
+        throw authError;
+      }
+
+      this.ssoProbeMiss = true;
+      this.emit('ssomiss', null);
+      return false;
+    }
+
+    this.ssoProbeMiss = false;
+    try { return await super.handleCallback(); }
+    catch (error) { this.clearDeniedLogin(error); throw error; }
+  }
+
+  async bootstrap() {
+    this.emit('loading', null);
+    await this.handleCallback();
+    const user = await this.getMe();
+    const suppressed = this.storage.getItem(this.key('sso_suppressed')) === '1';
+
+    if (!user && this.autoSso && !this.ssoProbeMiss && !suppressed) {
+      await this.startSilentSso();
+      return null;
+    }
+
+    this.emit('ready', user);
+    return user;
+  }
+}
