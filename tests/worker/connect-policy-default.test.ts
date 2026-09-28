@@ -11,6 +11,7 @@ function envWithPolicy(accessPolicy: string | null, status = 'active', role = 'u
           bind() {
             return {
               async first() {
+                if (query.includes('FROM applications')) return { status: 'active' };
                 if (query.includes('FROM application_settings')) return accessPolicy == null ? null : { access_policy: accessPolicy };
                 if (query.includes('FROM users')) return { id: 'user-1', display_name: 'User', avatar_url: null, status };
                 if (query.includes('FROM memberships')) return { user_id: 'user-1', guild_id: 'guild-1', is_guild_member: role === 'user' ? 0 : 1, role, status: 'active', checked_at: 0 };

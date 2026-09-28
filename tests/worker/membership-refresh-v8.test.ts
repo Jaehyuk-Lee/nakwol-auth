@@ -37,6 +37,7 @@ function createV8Env() {
                 if (sql.includes("FROM auth_identities WHERE provider = 'discord'")) {
                   return { user_id: 'usr_v8' };
                 }
+                if (sql.includes('FROM applications')) return { status: 'active' };
                 if (sql.includes('SELECT access_policy FROM application_settings')) {
                   return { access_policy: 'member' };
                 }

@@ -198,6 +198,10 @@ function fillForm(app) {
 }
 
 function selectApp(app) {
+  supportId.value = "";
+  supportStatus.textContent = "";
+  $("#support-reason").value = "";
+  moreEvents.hidden = true;
   state.creating = false;
   state.selected = app;
   ui.heading.textContent = app.name;
@@ -323,31 +327,100 @@ async function runDiagnostics() {
   }
 }
 
-function renderEvents(events) {
-  clear(ui.events);
-  if (!events.length) {
-    ui.events.appendChild(el('p', 'muted', '아직 기록된 인증 이벤트가 없습니다.'));
-    return;
-  }
+const reasonLabels = {
+  APP_DISABLED: '서비스 비활성화', USER_DISABLED: '사용자 비활성화',
+  REAUTHENTICATION_REQUIRED: '관리자가 Discord 재인증을 요구함', MANUAL_GRANT: '관리자 수동 허가',
+  SEASON_ROLE_NOT_CONFIGURED: '필수 시즌 역할 설정 없음', SEASON_ROLE_MISSING: '저장된 시즌3 역할 없음',
+  MEMBERSHIP_INACTIVE: '저장된 맹원 자격 비활성', ADDITIONAL_ROLE_MISSING: '추가 필수 역할 부족',
+  AUTH_OPERATOR_REQUIRED: 'AUTH 운영 권한 필요', LAB_PRIVILEGE_REQUIRED: '연구실 권한 필요', POLICY_ALLOWED: '역할 조건 충족',
+};
+let eventsCursor = null;
+let supportGeneration = 0;
+const supportId = $('#support-discord');
+const supportStatus = $('#support-status');
+const moreEvents = $('#events-more');
+const supportButtons = ['search', 'grant', 'revoke', 'reauth'].map(id => $('#support-' + id));
+const formatTime = value => value ? new Date(value).toLocaleString('ko-KR') : '확인 기록 없음';
+function readDetail(value) {
+  try { return JSON.parse(value || '{}') || {}; } catch { return {}; }
+}
+function renderEvents(events, append = false) {
+  if (!append) clear(ui.events);
+  if (!events.length && !append) ui.events.appendChild(el('p', 'muted', '기록된 인증 이벤트가 없습니다.'));
   for (const event of events) {
+    const detail = readDetail(event.detail);
     const row = el('div', 'event-row');
     const top = el('div', 'event-top');
-    top.append(el('b', '', event.event_type), el('time', '', new Date(event.created_at).toLocaleString('ko-KR')));
-    row.append(top, el('code', '', event.user_id || '-'));
+    top.append(el('b', '', event.event_type), el('time', '', formatTime(event.created_at)));
+    row.append(top, el('p', '', event.display_name || '사용자 미확인'),
+      el('code', '', 'Discord ' + (event.discord_user_id || detail.discord_user_id || '미확인') + ' · ' + (event.user_id || '-')));
+    if (detail.diagnosis) row.append(el('p', '', reasonLabels[detail.diagnosis.reason] || detail.diagnosis.reason));
+    if (detail.reason) row.append(el('p', '', '조치 사유: ' + detail.reason));
+    if (detail.actor_user_id) row.append(el('code', '', '조치 운영자: ' + detail.actor_user_id));
+    if (detail.message) row.append(el('p', 'error-text', detail.message));
+    const discordId = event.discord_user_id || detail.discord_user_id;
+    if (discordId) {
+      const select = el('button', 'ghost', '이 계정 진단');
+      select.type = 'button';
+      select.onclick = () => { supportId.value = discordId; loadEvents().catch(showSupportError); };
+      row.append(select);
+    }
     ui.events.appendChild(row);
   }
 }
-
-function renderEventsError(message) {
-  clear(ui.events);
-  ui.events.appendChild(el('p', 'error-text', message));
-}
-
-async function loadEvents() {
+function renderEventsError(message) { clear(ui.events); ui.events.appendChild(el('p', 'error-text', message)); }
+function showSupportError(error) { supportStatus.textContent = error.message; supportStatus.className = 'error-text'; }
+async function loadEvents(append = false) {
   if (!state.selected) return;
-  const payload = await api(`/admin/api/apps/${encodeURIComponent(state.selected.client_id)}/events`);
-  renderEvents(payload.data || []);
+  const generation = ++supportGeneration;
+  const params = new URLSearchParams({ discord_id: supportId.value.trim() });
+  if (append === true && eventsCursor) { params.set('before', eventsCursor.created_at); params.set('cursor_id', eventsCursor.id); }
+  const payload = await api('/admin/api/access/' + encodeURIComponent(state.selected.client_id) + '?' + params);
+  if (generation !== supportGeneration) return;
+  renderEvents(payload.events || [], append === true);
+  eventsCursor = payload.events?.at(-1) || null;
+  moreEvents.hidden = !payload.has_more;
+  const diagnosis = $('#support-diagnosis'); clear(diagnosis);
+  if (payload.diagnosis) {
+    const d = payload.diagnosis;
+    diagnosis.append(el('h4', '', payload.user.display_name + ' · ' + (d.allowed ? '접근 허용' : '접근 거부')),
+      el('p', '', reasonLabels[d.reason] || d.reason),
+      el('p', 'muted', 'Discord 역할 마지막 확인: ' + formatTime(d.checked_at)),
+      el('p', 'muted', '부족한 역할 ID: ' + (d.missing_role_ids.join(', ') || '없음')),
+      el('p', 'muted', '재인증 요구: ' + formatTime(d.reauthentication_requested_at) + (d.reauthentication_status === 'completed' ? ' · 재확인 완료' : d.reauthentication_status === 'pending' ? ' · 재확인 대기' : '')));
+  } else if (supportId.value.trim()) diagnosis.append(el('p', 'muted', '아직 로그인한 적 없는 Discord ID입니다. 수동 허가는 미리 등록할 수 있습니다.'));
+  const grants = $('#support-grants'); clear(grants);
+  if (!payload.grants.length) grants.append(el('p', 'muted', '수동 허가 기록이 없습니다.'));
+  for (const grant of payload.grants) {
+    const row = el('div', 'event-row');
+    row.append(el('b', '', (grant.display_name || '가입 전 사용자') + ' · ' + (grant.status === 'active' ? '허가 중' : '회수됨')),
+      el('code', '', grant.discord_user_id), el('p', 'muted', grant.reason + ' · ' + formatTime(grant.updated_at)));
+    const select = el('button', 'ghost', '계정 선택'); select.type = 'button';
+    select.onclick = () => { supportId.value = grant.discord_user_id; loadEvents().catch(showSupportError); };
+    row.append(select); grants.append(row);
+  }
 }
+$('#support-search').onclick = () => loadEvents().catch(showSupportError);
+moreEvents.onclick = () => loadEvents(true).catch(showSupportError);
+async function actOnAccess(action) {
+  if (!state.selected) return;
+  const discordId = supportId.value.trim(), reason = $('#support-reason').value.trim();
+  if (!/^\d{15,22}$/.test(discordId) || !reason) { showSupportError(new Error('Discord ID와 조치 사유를 입력하세요.')); return; }
+  const descriptions = {grant:'시즌3 및 추가 역할 조건을 대신하는 수동 허가', revoke:'수동 허가 회수', reauthenticate:'모든 서비스의 AUTH 로그인 무효화 및 Discord 재인증 요구'};
+  if (!confirm([state.selected.name + ' / Discord ' + discordId, descriptions[action], '사유: ' + reason].join(String.fromCharCode(10)))) return;
+  supportButtons.forEach(button => { button.disabled = true; });
+  try {
+    const result = await api('/admin/api/access/' + encodeURIComponent(state.selected.client_id), {
+      method:'POST', body:JSON.stringify({discord_user_id:discordId, reason, action}),
+    });
+    supportStatus.className = 'muted'; supportStatus.textContent = result.message;
+    await loadEvents();
+  } catch (error) { showSupportError(error); }
+  finally { supportButtons.forEach(button => { button.disabled = false; }); }
+}
+$('#support-grant').onclick = () => actOnAccess('grant');
+$('#support-revoke').onclick = () => actOnAccess('revoke');
+$('#support-reauth').onclick = () => actOnAccess('reauthenticate');
 
 ui.form.addEventListener('input', (event) => {
   if (state.creating && event.target.name === 'name') {
