@@ -1,5 +1,5 @@
 import { readProjectConfig } from './config.mjs';
-import { assetInventory, inspectProtection, siteUrl } from './protection.mjs';
+import { assetInventory, inspectProtection, siteUrl, generatedAssetPaths } from './protection.mjs';
 
 function protectedPaths(files) {
   const paths = new Set(['/']);
@@ -18,7 +18,7 @@ export async function verifyProtection(options = {}) {
   const primary = siteUrl(options.url || config.protection.siteUrl);
   if (primary !== config.protection.siteUrl) throw new Error('--url이 설치 시 지정한 배포 주소와 다릅니다. protect install로 설정을 갱신하세요.');
   const origins = [...new Set([primary, ...String(options.alternateOrigins || '').split(',').filter(Boolean).map(siteUrl)])];
-  const inventory = await assetInventory(root, config.protection.assetsDirectory);
+  const inventory = await assetInventory(root, config.protection.assetsDirectory, generatedAssetPaths(config.protection));
   const paths = protectedPaths(inventory.paths);
   if (options.paths) {
     for (const path of String(options.paths).split(',')) {

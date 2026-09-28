@@ -1,6 +1,6 @@
 {
   "name": "nakwol-connect",
-  "version": "0.6.1",
+  "version": "0.6.2",
   "description": "Official agent-first installer and management CLI for NAKWOL Connect",
   "type": "module",
   "bin": { "nakwol-connect": "bin/nakwol-connect.mjs" },
