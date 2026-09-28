@@ -141,9 +141,12 @@ test('account recheck clears only browser SSO and the next authorize reaches Dis
   assert.equal(await findSessionUser(env, session.token), null);
   assert.equal(await findSessionUser(env, otherSession.token), 'user');
   assert.equal(await authenticateAccessToken(env, 'other-service', 'other-service'), 'user');
+  const background: Promise<unknown>[] = [];
+  t.mock.method(Math, 'random', () => 0);
   const next = await app.request('https://auth.test/authorize?client_id=nakwol-account-center&redirect_uri=https%3A%2F%2Fauth.test%2Faccount&code_challenge=fixture&code_challenge_method=S256&state=fixture', {
     headers: { Cookie: 'nakwol_sid=' + session.token },
-  }, env);
+  }, env, { waitUntil: promise => { background.push(promise); }, passThroughOnException() {}, props: {} });
+  await Promise.all(background);
   assert.equal(next.status, 302);
   assert.match(next.headers.get('Location') || '', /^https:\/\/discord.com\/oauth2\/authorize\?/);
 });
