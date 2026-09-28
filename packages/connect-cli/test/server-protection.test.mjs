@@ -8,7 +8,7 @@ import { installProtection, inspectProtection, assetInventory } from '../src/pro
 import { verifyProtection } from '../src/protection-verify.mjs';
 import { serveProtected, COOKIE } from '../src/server/gate.mjs';
 import { loginPage } from '../src/server/login.mjs';
-import { doctorProject, removeProject } from '../src/commands.mjs';
+import { initProject, doctorProject, removeProject } from '../src/commands.mjs';
 
 async function fixture(t) {
   const root = await mkdtemp(join(tmpdir(), 'nakwol-protect-'));
@@ -54,6 +54,52 @@ test('doctor distinguishes an embed from server protection', async t => {
   const result = await doctorProject({root,offline:true});
   assert.equal(result.protectionStatus,'unprotected');
   assert.equal(result.checks.find(c=>c.name==='server_gate').ok,false);
+});
+
+test('required doctor cannot bypass live verification with offline or connectionOnly', async t => {
+  const root = await fixture(t);
+  await installProtection(options(root));
+  const result = await doctorProject({ root, offline:true, connectionOnly:true });
+  assert.equal(result.ok, false);
+  assert.equal(result.checks.find(c => c.name === 'server_gate').ok, true);
+  assert.equal(result.checks.find(c => c.name === 'anonymous_blocking').ok, false);
+});
+
+test('init installs Pages gate but exits incomplete until deployed; optional stays public', async t => {
+  const root = await fixture(t);
+  const sessionPath = join(root, '.session.json');
+  const authOrigin = 'https://auth.test';
+  await writeFile(sessionPath, JSON.stringify({ accessToken:'fixture', expiresAt:Date.now()+60000, authOrigin }));
+  let deployed = false;
+  const fetchImpl = async url => {
+    const parsed = new URL(url);
+    if (parsed.hostname === 'site.test') return new Response(null, { status:deployed ? 401 : 200, headers:{ 'X-Nakwol-Gate':'v1', 'Cache-Control':'no-store' } });
+    if (parsed.pathname.endsWith('/me')) return Response.json({ ok:true, data:{ user:{ id:'test' } } });
+    if (parsed.pathname.endsWith('/scopes')) return Response.json({ ok:true, data:{ registered:true, scopes:[], available_scopes:[] } });
+    if (parsed.pathname === '/openapi.json') return Response.json({ openapi:'3.1.0', 'x-nakwol-data-scopes':[], paths:{} });
+    return Response.json({ ok:true, data:{ client_id:'test-site', status:'active', access_policy:'member', redirect_uris:['https://site.test/'] } });
+  };
+  const messages = [];
+  const opts = { ...options(root), provider:'cloudflare-pages', projectName:'existing-pages-site', authOrigin, dataOrigin:'https://data.test', sessionPath, fetchImpl, output:message => messages.push(message) };
+  const pending = await initProject(opts);
+  assert.equal(pending.ok, false);
+  assert.match(messages[0], /설치 미완료/);
+  const routes = JSON.parse(await readFile(join(root, 'dist/_routes.json'), 'utf8'));
+  assert.deepEqual(routes, { version:1, include:['/*'], exclude:[] });
+  assert.equal(JSON.parse(await readFile(join(root, 'wrangler.nakwol.json'), 'utf8')).name, 'existing-pages-site');
+  deployed = true;
+  const complete = await initProject(opts);
+  assert.equal(complete.ok, true);
+  assert.equal(complete.doctor.protectionStatus, 'anonymous-blocking-verified');
+  const automatic = await doctorProject({ root, authOrigin, sessionPath, fetchImpl });
+  assert.equal(automatic.ok, true, 'stored production URL must be verified without --url');
+  await writeFile(join(root, 'dist/_routes.json'), '{"version":1,"include":["/*"],"exclude":["/private.json"]}');
+  assert.equal((await inspectProtection(root, await readProjectConfig(root))).ok, false);
+
+  const publicRoot = await fixture(t);
+  const publicResult = await initProject({ ...opts, root:publicRoot, provider:undefined, authMode:'optional' });
+  assert.equal(publicResult.ok, true);
+  assert.equal(publicResult.config.protection, undefined);
 });
 
 test('live probe rejects public content, redirects, outage and generic denial without gate evidence', async t => {

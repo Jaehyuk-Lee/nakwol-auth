@@ -4,7 +4,7 @@
 개발자 권한을 받은 앱 소유자는 member/guest를 선택할 수 있으며 admin 정책과 추가 역할은 AUTH 운영자가 설정합니다.
 
 **Embed만으로 HTML·파일이 비공개가 되지는 않습니다.** 직접 주소 접근 차단은 서버 게이트 설치와 배포가 필요합니다.
-현재 자동 지원은 Cloudflare Workers Static Assets의 정적 빌드입니다. SSR/API/다른 호스팅은 자동 보호 완료로 처리하지 않습니다.
+자동 지원은 Cloudflare Workers Static Assets 및 Cloudflare Pages의 정적 빌드입니다. SSR/API/기존 사용자 Worker는 자동 연결하지 않습니다.
 
 ```bash
 npx --yes nakwol-connect init --auth required --access-policy member --url https://YOUR-SITE/
@@ -17,7 +17,21 @@ npx --yes nakwol-connect protect verify --url https://YOUR-SITE/ --json
 npx --yes nakwol-connect doctor --url https://YOUR-SITE/ --json
 ```
 
-init의 연결 성공은 보호 완료가 아닙니다. required 사이트의 doctor는 서버 게이트가 없으면 실패합니다.
+required의 init·sync·doctor는 서버 게이트와 배포 사이트의 비로그인 차단 검증을 통과하기 전까지 ok:false/종료 코드 1을 반환합니다. 앱 등록과 파일 생성은 보존되므로 배포 후 다시 검사하세요. doctor는 --url 생략 시 저장된 운영 URL을 검사합니다. 로컬 검사만으로 완료되지 않습니다.
+빌드가 준비되어 있으면 init에 --provider cloudflare-workers --assets dist를 함께 지정해 서버 게이트까지 설치할 수 있습니다.
+
+### Cloudflare Pages
+
+기존 Pages 프로젝트에 적용할 때는 다음 명령을 사용합니다. 프로젝트 이름은 AUTH client ID와 다를 수 있습니다.
+
+```bash
+nakwol-connect protect install --provider cloudflare-pages --project-name YOUR-PAGES-PROJECT --assets dist --url https://YOUR-PAGES-PROJECT.pages.dev/
+npx wrangler pages secret put NAKWOL_SESSION_SECRET --project-name YOUR-PAGES-PROJECT
+npx wrangler pages deploy dist --project-name YOUR-PAGES-PROJECT --branch YOUR-PRODUCTION-BRANCH
+nakwol-connect doctor --json
+```
+
+dist/_worker.js와 dist/_routes.json을 반드시 함께 배포합니다. 모든 경로에 인증을 적용하며 라우팅 제외 경로는 없습니다. 재빌드 시 생성된 두 파일을 보존하세요. Pages Functions의 요청 한도 초과 동작도 **fail closed**로 설정해야 합니다. 과거 공개 배포 URL은 새 배포로 사라지지 않으므로 별도 비공개화/삭제가 필요합니다.
 configured는 설치만 완료, anonymous-blocking-verified는 검사한 주소·경로의 비로그인 차단 검증 통과입니다.
 GET·HEAD·Range·잘못된 쿠키를 검사하며 200·302·404·503은 성공으로 인정하지 않습니다.
 이전 배포 주소는 --alternate-origins로 추가하세요. 실제 시즌3/비멤버 로그인과 로그아웃은 브라우저로 별도 확인합니다.
@@ -38,7 +52,7 @@ auth=required
 access-policy=member
 ```
 
-A plain install therefore locks the page until authentication succeeds and allows only authenticated NAKWOL members. Missing or malformed central access-policy settings fail closed to `member`.
+A plain Embed install only covers the page visually. Required installation remains incomplete until a server gate is deployed and verified. Missing or malformed central access-policy settings fail closed to `member`.
 
 Do not infer that a page should be public merely because it is static, a demo, a test page, or hosted on Cloudflare Pages.
 
