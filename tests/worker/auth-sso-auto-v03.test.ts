@@ -27,8 +27,8 @@ test('SDK v0.3 layers automatic SSO on immutable v0.2', async () => {
 
   assert.match(routes, /sdkV03Source/);
   assert.match(routes, /\/sdk\/v0\.3\.0\/nakwol-auth-web\.js/);
-  assert.match(routes, /NAKWOL_AUTH_WEB_SDK_VERSION\s*=\s*'0\.3\.1'/);
-  assert.match(routes, /module:\s*'\/sdk\/v0\.3\.1\/nakwol-auth-web\.js'/);
+  assert.match(routes, /NAKWOL_AUTH_WEB_SDK_VERSION\s*=\s*'0\.3\.2'/);
+  assert.match(routes, /module:\s*'\/sdk\/v0\.3\.2\/nakwol-auth-web\.js'/);
 });
 
 test('authorize prompt=none checks only the central session and never opens Discord when absent', async () => {
@@ -53,6 +53,6 @@ test('Connect Universal Embed enables automatic SSO by default with an explicit 
   const connect = await root('src/assets/nakwol-connect-v1.js.txt');
 
   assert.match(connect, /dataset\.autoSso !== 'false'/);
-  assert.match(connect, /sdk\/v0\.3\.1\/nakwol-auth-web\.js/);
+  assert.match(connect, /sdk\/v0\.3\.2\/nakwol-auth-web\.js/);
   assert.match(connect, /new sdk\.NakwolAuthClient\(\{ clientId, redirectUri, authOrigin, autoSso \}\)/);
 });

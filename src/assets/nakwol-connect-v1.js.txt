@@ -171,7 +171,7 @@
   const start = async () => {
     try {
       if (authRequired && !restoredUser) ensureAuthGuard();
-      const sdk = await import(`${authOrigin}/sdk/v0.3.1/nakwol-auth-web.js`);
+      const sdk = await import(`${authOrigin}/sdk/v0.3.2/nakwol-auth-web.js`);
       const client = new sdk.NakwolAuthClient({ clientId, redirectUri, authOrigin, autoSso });
       if (script.dataset.serverGate === 'true') {
         const rememberReturnPage = () => {
@@ -334,6 +334,8 @@
       }
       const widget = sdk.mountNakwolIdentityMenu(client, {
         globalLogout,
+        showAccountLinks: script.dataset.accountLinks === 'true',
+        showRole: script.dataset.showRole === 'true',
         variant: 'compact',
         theme: 'dark',
       });
