@@ -2,7 +2,7 @@ import type { Hono } from 'hono';
 import cliPackageBase64 from './assets/nakwol-connect-cli.tgz.b64.js.txt';
 import type { Env } from './types';
 
-export const CONNECT_CLI_VERSION = '0.6.1';
+export const CONNECT_CLI_VERSION = '0.6.2';
 export const CONNECT_CLI_PACKAGE_NAME = 'nakwol-connect';
 const SERVER_PROTECTION_GUIDANCE = `## Server protection is separate from browser authentication
 
@@ -10,11 +10,11 @@ const SERVER_PROTECTION_GUIDANCE = `## Server protection is separate from browse
 
 Offer an explicit "계정 확인·접속 문제 해결" link to AUTH /account?client_id=YOUR_CLIENT_ID&recovery=1 alongside login retry. Do not automatically redirect errors. AUTH resolves the return destination exclusively from registered redirect URIs; never pass arbitrary return URLs. Role refresh cannot resolve administrator restrictions or disabled services.
 
-Central /connect/v1.js includes this error link. Existing generated server gates must regenerate with Connect CLI 0.6.1 and redeploy; custom error pages must add the link. The AUTH-hosted /connect/cli/v0.6.1/package.tgz provides this version independently of npm registry publication.
+Central /connect/v1.js includes this error link. Existing generated server gates must regenerate with Connect CLI 0.6.2 and redeploy; custom error pages must add the link. The AUTH-hosted /connect/cli/v0.6.2/package.tgz provides this version independently of npm registry publication.
 
 member means the centrally configured Season 3 role (1553600098661957643). Developers choose member, not a Discord role ID. Active developers manage owned apps with member/guest; admin policy and additional role requirements are operator-only.
 
-An Embed or a green init connection check does NOT block direct HTML/assets access. For a static Cloudflare Workers site:
+Required init and sync return ok:false and exit 1 until server protection and live anonymous blocking checks pass. Embed-only setup is incomplete. Pass --provider and --assets to init to install the gate in the same command. For a static Cloudflare Workers site:
 
     nakwol-connect init --auth required --access-policy member --url https://SITE/
     # Build the site into dist first.
@@ -27,9 +27,11 @@ An Embed or a green init connection check does NOT block direct HTML/assets acce
 
 Use a random session secret of at least 32 characters via Cloudflare Secret input; never put it in source or conversation. Deployment requires the site owner's Cloudflare access. The generated Worker name is client ID; review naming collisions before deploy. CI must use wrangler.nakwol.json. Custom domains must point to this Worker. Server-side rendering, existing Worker business logic, API servers and other hosting platforms are not automatically installed or certified. Never report them protected based only on an Embed.
 
-configured means installed, configured-not-verified means deployment untested, anonymous-blocking-verified means anonymous requests to the checked URLs were denied. Verify tests all local build asset paths with GET/HEAD/Range/invalid cookies, without login and without following redirects. Only gate-marked 401/403 no-store responses pass; 200/206/302/404/503 and timeouts fail. Doctor without --url cannot certify live blocking. Required sites without a gate fail doctor.
+configured means installed, configured-not-verified means deployment untested, anonymous-blocking-verified means anonymous requests to the checked URLs were denied. Verify tests all local build asset paths with GET/HEAD/Range/invalid cookies, without login and without following redirects. Only gate-marked 401/403 no-store responses pass; 200/206/302/404/503 and timeouts fail. Doctor verifies the stored production URL when --url is omitted. Offline or local configuration checks cannot certify required installation.
 
 Pass --alternate-origins https://OLD/ and --paths /private-route to protect verify where needed. Unlisted origins, old public deployments and public storage are NOT discovered or protected. Separately verify a real Season 3 login, a non-member denial and awaited NAKWOL_CONNECT.logout(). Do not call blocking checks full login acceptance.
+
+Cloudflare Pages static sites: use --provider cloudflare-pages --project-name EXISTING_PROJECT. Deploy the generated output directory including _worker.js and _routes.json (include /*, no exclusions). Set NAKWOL_SESSION_SECRET with wrangler pages secret put and disable Pages Functions fail-open. Build before installing; do not delete generated gate files in a later build. Old deployment URLs remain a separate exposure to remove or protect.
 
 Current authorization is bot-free OAuth role snapshots. Existing SSO may reuse stale roles; this installer does not promise immediate Discord role revocation. See /connect#server-protection for Korean setup and troubleshooting.
 
@@ -47,7 +49,7 @@ export function registerConnectCliDistributionRoutes(app: Hono<{ Bindings: Env }
       version:CONNECT_CLI_VERSION,
       default_auth:'required',
       default_access_policy:'member',
-      server_protection_providers:['cloudflare-workers'],
+      server_protection_providers:['cloudflare-workers','cloudflare-pages'],
       server_protection_install:'nakwol-connect protect install --provider cloudflare-workers --assets dist --url https://SITE/',
       server_protection_verify:'nakwol-connect protect verify --url https://SITE/ --json',
       embed_is_server_protection:false,

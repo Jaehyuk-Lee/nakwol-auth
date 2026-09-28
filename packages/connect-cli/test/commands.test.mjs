@@ -53,7 +53,9 @@ test('init updates an existing app to the requested guest policy', async () => {
     const result = await initProject({ root, authOrigin: origin, dataOrigin: origin, sessionPath, accessPolicy: 'guest', noOpen: true, output: () => {} });
     assert.equal(patched, true);
     assert.equal(accessPolicy, 'guest');
-    assert.equal(result.doctor.ok, true);
+    assert.equal(result.ok, false);
+    assert.equal(result.doctor.ok, false);
+    assert.equal(result.doctor.protectionStatus, 'unprotected');
     assert.equal(result.doctor.checks.find((check) => check.name === 'central_access_policy')?.ok, true);
   } finally {
     server.close();
