@@ -40,7 +40,7 @@ export async function listConnectedServices(env: Env, userId: string): Promise<C
      LEFT JOIN application_settings s ON s.client_id=a.client_id
      WHERE e.user_id = ?
        AND e.client_id IS NOT NULL
-       AND e.event_type IN ('discord.login.success','authorize.sso')
+       AND e.event_type IN ('discord.login.success','authorize.sso','authorize.sso_auto')
        AND a.status = 'active'
        AND COALESCE(s.framework,'') <> 'internal'
      GROUP BY a.client_id,a.name,s.homepage_url,s.access_policy
