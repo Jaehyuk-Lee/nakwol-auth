@@ -238,7 +238,7 @@ export function accountPageHtml(): string {
       for (const service of services) { const option = document.createElement('option'); option.value = service.client_id; option.textContent = service.name || service.client_id; option.selected = service === (selected || services[0]); select.appendChild(option); }
       select.addEventListener('change', () => showPermission(services.find(service => service.client_id === select.value)));
       document.querySelector('#permissions').prepend(select);
-      if (selectedClientId || location.hash === '#permissions') document.querySelector('#support').open = true;
+      if ((!recoveryClientId && selectedClientId) || location.hash === '#permissions') document.querySelector('#support').open = true;
     }
 
     function renderAccount(summary) {
