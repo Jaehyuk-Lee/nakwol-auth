@@ -1,7 +1,7 @@
 import type { Hono } from 'hono';
 import type { Env } from './types';
-import { jsonError } from './http';
-import { authenticateAccessToken, getUserWithMembership } from './store';
+import { clearSessionCookie, jsonError, parseCookies } from './http';
+import { authenticateAccessToken, deleteSession, getUserWithMembership } from './store';
 import { listConnectedServices } from './account-store';
 
 export const ACCOUNT_CLIENT_ID = 'nakwol-account-center';
@@ -20,81 +20,70 @@ export function accountPageHtml(): string {
   <meta name="color-scheme" content="dark">
   <title>NAKWOL 계정</title>
   <style>
-    :root{font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;color:#f8fafc;background:#0b1020}
-    *{box-sizing:border-box}body{margin:0;min-height:100vh;background:radial-gradient(circle at top,#172554 0,#0b1020 42%,#060913 100%);color:#f8fafc}
-    button,a{font:inherit}.shell{width:min(1040px,calc(100% - 32px));margin:0 auto;padding:28px 0 52px}.topbar{display:flex;align-items:center;justify-content:space-between;gap:20px;margin-bottom:24px}.brand small{display:block;color:#94a3b8;letter-spacing:.12em}.brand h1{margin:4px 0 0;font-size:clamp(25px,4vw,36px)}
-    .hero,.card{border:1px solid #253047;background:rgba(15,23,42,.86);box-shadow:0 18px 46px rgba(0,0,0,.2);backdrop-filter:blur(12px)}.hero{border-radius:22px;padding:26px;margin-bottom:18px}.hero p{margin:8px 0 0;color:#94a3b8;line-height:1.65}.card{border-radius:16px;padding:18px}.grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}.wide{grid-column:1/-1}
-    .eyebrow{font-size:12px;font-weight:800;letter-spacing:.08em;color:#a5b4fc;text-transform:uppercase}.card h2{font-size:16px;margin:5px 0 14px}.muted{color:#94a3b8}.value{font-weight:800;word-break:break-word}.stack{display:grid;gap:9px}.row{display:flex;align-items:center;justify-content:space-between;gap:12px}.badge{display:inline-flex;align-items:center;min-height:28px;padding:4px 9px;border-radius:999px;background:#172554;color:#c7d2fe;font-size:12px;font-weight:800}.button{display:inline-flex;align-items:center;justify-content:center;min-height:40px;padding:9px 14px;border:0;border-radius:11px;background:#5865f2;color:#fff;font-weight:800;cursor:pointer;text-decoration:none}.button.secondary{background:#1e293b;color:#e2e8f0;border:1px solid #334155}.button.danger{background:#7f1d1d}.button:focus-visible,a:focus-visible{outline:2px solid #a5b4fc;outline-offset:3px}
-    [hidden]{display:none!important}.notice{border-radius:14px;padding:16px;border:1px solid #334155;background:#111827}.notice.error{border-color:#7f1d1d;color:#fecaca;background:#2b1116}.service{display:grid;gap:8px;padding:14px;border:1px solid #334155;border-radius:13px;background:#0b1220}.service[data-selected="true"]{border-color:#818cf8;box-shadow:0 0 0 1px #818cf8}.service a{color:#c7d2fe;text-decoration:none;font-weight:800}.service a:hover{text-decoration:underline}.permissions-list{margin:8px 0 0;padding-left:20px;color:#cbd5e1}.permission-empty{color:#94a3b8}.footer-actions{display:flex;justify-content:flex-end;margin-top:18px}
-    @media (max-width:720px){.topbar{align-items:flex-start;flex-direction:column}.grid{grid-template-columns:1fr}.wide{grid-column:auto}.row{align-items:flex-start;flex-direction:column}.footer-actions{justify-content:stretch}.footer-actions .button{width:100%}}
+    :root{color-scheme:dark;--bg:#0b1020;--surface:#111a2b;--line:#29364b;--text:#f1f5f9;--muted:#a6b3c7;--accent:#a5b4fc;font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;color:var(--text);background:var(--bg)}
+    *{box-sizing:border-box}body{margin:0;line-height:1.65}button,a{font:inherit}a{color:var(--accent);text-underline-offset:4px}button{cursor:pointer}.shell{width:min(720px,calc(100% - 40px));margin:auto;padding:48px 0 64px}.topbar{margin-bottom:32px}.brand small{color:var(--muted);font-size:12px;letter-spacing:.12em}.brand h1{margin:8px 0;font-size:30px;letter-spacing:-.04em}.intro,.muted{color:var(--muted)}.intro{margin:0}.card,.notice{padding:24px;border:1px solid var(--line);border-radius:16px;background:var(--surface);margin-bottom:16px}.card h2{font-size:18px;margin:0 0 12px}.card p{margin:8px 0}.profile{display:flex;align-items:center;gap:16px}.avatar{width:64px;height:64px;flex:none;border-radius:50%;object-fit:cover;background:#24314b;display:grid;place-items:center;font-size:24px;color:var(--accent)}.profile h2{font-size:23px;margin:0;overflow-wrap:anywhere}.profile p{margin:2px 0;font-size:14px}.row{display:flex;align-items:center;justify-content:space-between;gap:16px}.stack{display:grid;gap:12px}.badge{display:inline-block;padding:5px 12px;border-radius:999px;background:#25304c;color:#d6dcff;font-weight:650;font-size:14px}.badge[data-member="true"]{background:#143e35;color:#a7f3d0}.button{display:inline-flex;align-items:center;justify-content:center;min-height:44px;padding:10px 16px;border:1px solid transparent;border-radius:10px;background:#5865f2;color:white;font-weight:650;text-decoration:none}.button.secondary{background:transparent;border-color:#4b5b76;color:var(--text)}.button:disabled{opacity:.6;cursor:wait}button:focus-visible,a:focus-visible,summary:focus-visible{outline:2px solid var(--accent);outline-offset:4px}.recovery{border-left:3px solid #818cf8}.service{padding:16px 0;border-bottom:1px solid var(--line)}.service:first-child{padding-top:0}.service:last-child{padding-bottom:0;border-bottom:0}.service strong{overflow-wrap:anywhere}.service .muted{font-size:13px}.notice.error{border-color:#9f4b5a;color:#fecdd3}.small{font-size:13px}.support{margin-top:24px;color:var(--muted);font-size:13px}.support summary{cursor:pointer;min-height:44px;padding:10px 0}.support-body{padding:16px;border:1px solid var(--line);border-radius:12px;overflow-wrap:anywhere}.support dl{margin:0}.support dt{margin-top:8px}.support dd{margin-left:0;color:var(--text)}.permissions-list{padding-left:20px}.logout-section{margin-top:24px;padding-top:24px;border-top:1px solid var(--line)}[hidden]{display:none!important}
+    @media(max-width:520px){.shell{width:calc(100% - 32px);padding-top:28px}.card,.notice{padding:20px}.brand h1{font-size:27px}.row{align-items:flex-start;flex-direction:column;gap:8px}.button{width:100%}.service .button{width:auto}.avatar{width:52px;height:52px}.profile h2{font-size:21px}}
   </style>
 </head>
 <body>
   <main class="shell" id="account-root">
     <header class="topbar">
-      <div class="brand"><small>落月 · NAKWOL AUTH</small><h1>내 낙월 계정</h1></div>
-      <div id="account-identity" aria-live="polite"></div>
+      <div class="brand"><small>落月 · NAKWOL</small><h1>내 낙월 계정</h1></div>
+      <p class="intro">내 로그인 정보와 낙월 이용 상태를 확인하세요.</p>
     </header>
-
-    <section class="hero">
-      <div class="eyebrow">Account Center</div>
-      <h2>NAKWOL ID와 서비스 연결 상태를 한 곳에서 확인합니다.</h2>
-      <p>표시되는 연결 서비스는 이 계정으로 실제 인증에 성공한 기록만 기준으로 합니다.</p>
-    </section>
-
+    <p id="loading" class="muted" role="status">계정 정보를 불러오는 중입니다…</p>
     <section id="logged-out" class="notice" hidden>
-      <strong>NAKWOL 계정 로그인이 필요합니다.</strong>
-      <p class="muted">Discord 인증 후 NAKWOL ID와 연결된 서비스 권한을 확인할 수 있습니다.</p>
+      <h2>Discord 계정으로 시작하세요</h2>
+      <p class="muted">로그인하면 내 맹원 상태와 이용한 서비스를 확인할 수 있습니다.</p>
       <button id="login" class="button" type="button">Discord로 낙월 로그인</button>
     </section>
-
-    <section id="account-content" hidden>
-      <div class="grid">
-        <section id="profile-card" class="card">
-          <div class="eyebrow">NAKWOL ID</div>
-          <h2>프로필</h2>
-          <div class="stack">
-            <div><div class="muted">표시 이름</div><div id="profile-name" class="value">-</div></div>
-            <div><div class="muted">NAKWOL ID</div><div id="profile-id" class="value">-</div></div>
-          </div>
-        </section>
-
-        <section id="membership-card" class="card">
-          <div class="eyebrow">Membership</div>
-          <h2>낙월 소속 상태</h2>
-          <div class="stack">
-            <div class="row"><span class="muted">현재 역할</span><span id="membership-role" class="badge">-</span></div>
-            <div class="row"><span class="muted">맹원 인증</span><span id="membership-state" class="value">-</span></div>
-          </div>
-        </section>
-
-        <section id="services-card" class="card wide">
-          <div class="eyebrow">Connections</div>
-          <h2>연결된 서비스</h2>
-          <div id="services" class="stack"></div>
-        </section>
-
-        <section id="permissions" class="card wide">
-          <div class="eyebrow">Permissions</div>
-          <h2>서비스 권한</h2>
-          <div id="permission-detail" class="permission-empty">연결된 서비스를 선택하면 이 서비스가 확인하는 AUTH 권한을 표시합니다.</div>
-        </section>
-      </div>
-
-      <div class="footer-actions">
-        <button id="global-logout" class="button danger" type="button">모든 낙월 서비스에서 로그아웃</button>
-      </div>
+    <section id="account-error" class="notice error" hidden aria-live="assertive">
+      <p id="error-message"></p><button id="retry-login" class="button secondary" type="button">로그인 다시 시도</button>
     </section>
-
-    <section id="account-error" class="notice error" hidden aria-live="assertive"></section>
+    <section id="account-content" hidden>
+      <section id="profile-card" class="card profile">
+        <span id="avatar-fallback" class="avatar" aria-hidden="true">落</span><img id="profile-avatar" class="avatar" alt="" hidden referrerpolicy="no-referrer">
+        <div><h2 id="profile-name">내 계정</h2><p id="account-identity" class="muted">Discord로 로그인한 계정</p></div>
+      </section>
+      <section id="membership-card" class="card">
+        <div class="row"><h2>낙월 이용 상태</h2><span id="membership-state" class="badge">확인 중</span></div>
+        <p id="membership-help"></p>
+        <p class="muted small">마지막 확인 <time id="membership-checked">확인 기록 없음</time></p>
+        <p class="muted small">Discord에서 마지막으로 확인한 상태입니다. 역할이 바뀌었다면 아래에서 다시 확인해 주세요.</p>
+      </section>
+      <section class="card recovery">
+        <h2>역할을 받았는데 접속이 안 되나요?</h2>
+        <p class="muted">시즌3 역할이 있는 Discord 계정으로 다시 인증해 주세요. 확인을 마친 뒤 이용하던 서비스에서 다시 접속해 보세요.</p>
+        <button id="recheck" class="button" type="button">Discord로 다시 확인</button>
+        <p id="recheck-status" class="small" role="status"></p>
+      </section>
+      <section id="services-card" class="card">
+        <h2>이용한 서비스</h2><p class="muted small">이 계정으로 로그인에 성공한 서비스입니다. 현재 이용 가능 여부는 각 서비스의 접근 설정에 따라 달라집니다.</p>
+        <div id="services" class="stack"></div>
+      </section>
+      <section class="logout-section">
+        <button id="global-logout" class="button secondary" type="button">모든 낙월 서비스에서 로그아웃</button>
+        <p class="muted small">다른 기기를 포함해 낙월 인증 세션을 종료합니다. 서비스에 다시 접속할 때 로그인이 필요하며, 서비스 자체 세션은 인증을 다시 확인할 때 종료됩니다.</p>
+        <p id="logout-status" role="status"></p>
+      </section>
+      <details id="support" class="support">
+        <summary>고객지원 정보</summary>
+        <div class="support-body">
+          <p>접속 문제가 계속되면 아래 계정 식별 정보와 서비스 이름을 관리자에게 알려 주세요.</p>
+          <dl><dt>NAKWOL ID</dt><dd id="profile-id">-</dd><dt>인증 역할</dt><dd id="membership-role">-</dd></dl>
+          <section id="permissions"><h3>서비스 권한</h3><div id="permission-detail"></div></section>
+        </div>
+      </details>
+    </section>
   </main>
 
   <script type="module">
-    import { NakwolAuthClient } from '/sdk/v0.2.0/nakwol-auth-web.js';
+    import { NakwolAuthClient } from '/sdk/v0.3.2/nakwol-auth-web.js';
 
     const ACCOUNT_CLIENT_ID = 'nakwol-account-center';
     const auth = new NakwolAuthClient({
       clientId: ACCOUNT_CLIENT_ID,
+      authOrigin: location.origin,
       redirectUri: location.origin + '/account',
     });
 
@@ -109,19 +98,25 @@ export function accountPageHtml(): string {
     const selectedClientId = new URLSearchParams(location.search).get('client_id');
 
     function hideAllStates() {
+      document.querySelector('#loading').hidden = true;
       loggedOut.hidden = true;
       content.hidden = true;
       errorBox.hidden = true;
     }
 
     function setIdentity(user) {
-      identity.textContent = user ? (user.display_name || user.id || 'NAKWOL ID') : '로그인하지 않음';
+      identity.textContent = user ? 'Discord로 로그인한 계정' : '로그인하지 않음';
     }
 
     function showError(message) {
       hideAllStates();
-      errorBox.textContent = message || '계정 정보를 불러오지 못했습니다.';
+      document.querySelector('#error-message').textContent = message || '계정 정보를 불러오지 못했습니다.';
       errorBox.hidden = false;
+    }
+
+    function formatDate(value) {
+      if (!value || !Number.isFinite(Number(value))) return '확인 기록 없음';
+      return new Date(Number(value)).toLocaleString('ko-KR', { dateStyle: 'medium', timeStyle: 'short' });
     }
 
     function roleLabel(role) {
@@ -140,7 +135,7 @@ export function accountPageHtml(): string {
       }
 
       const title = document.createElement('strong');
-      title.textContent = service.name || service.client_id;
+      title.textContent = (service.name || '등록된 서비스') + ' · ' + service.client_id;
       const list = document.createElement('ul');
       list.className = 'permissions-list';
       for (const permission of service.permissions || []) {
@@ -173,30 +168,36 @@ export function accountPageHtml(): string {
         const heading = document.createElement('div');
         heading.className = 'row';
         const name = document.createElement('strong');
-        name.textContent = service.name || service.client_id;
-        const choose = document.createElement('a');
-        choose.href = '/account?client_id=' + encodeURIComponent(service.client_id) + '#permissions';
-        choose.textContent = '서비스 권한 보기';
-        heading.append(name, choose);
+        name.textContent = service.name || '등록된 서비스';
+        heading.append(name);
 
         const meta = document.createElement('div');
         meta.className = 'muted';
-        meta.textContent = service.client_id;
+        meta.textContent = '마지막 로그인 ' + formatDate(service.last_authorized_at);
         item.append(heading, meta);
 
-        if (service.homepage_url) {
+        let homepageUrl = null;
+        try { const url = new URL(service.homepage_url); if (['https:', 'http:'].includes(url.protocol)) homepageUrl = url.href; } catch {}
+        if (homepageUrl) {
           const homepage = document.createElement('a');
-          homepage.href = service.homepage_url;
+          homepage.href = homepageUrl;
+          homepage.className = 'button secondary';
           homepage.target = '_blank';
           homepage.rel = 'noopener noreferrer';
-          homepage.textContent = '서비스 열기';
+          homepage.textContent = '서비스 열기 ↗';
+          homepage.setAttribute('aria-label', (service.name || '서비스') + ' 열기 (새 탭)');
           item.appendChild(homepage);
         }
         servicesRoot.appendChild(item);
       }
 
-      showPermission(selected);
-      if (location.hash === '#permissions') document.querySelector('#permissions')?.scrollIntoView({ block: 'start' });
+      showPermission(selected || services[0]);
+      const select = document.createElement('select');
+      select.setAttribute('aria-label', '고객지원 서비스 선택');
+      for (const service of services) { const option = document.createElement('option'); option.value = service.client_id; option.textContent = service.name || service.client_id; option.selected = service === (selected || services[0]); select.appendChild(option); }
+      select.addEventListener('change', () => showPermission(services.find(service => service.client_id === select.value)));
+      document.querySelector('#permissions').prepend(select);
+      if (selectedClientId || location.hash === '#permissions') document.querySelector('#support').open = true;
     }
 
     function renderAccount(summary) {
@@ -205,7 +206,16 @@ export function accountPageHtml(): string {
       document.querySelector('#profile-name').textContent = user.display_name || '-';
       document.querySelector('#profile-id').textContent = user.id || '-';
       document.querySelector('#membership-role').textContent = roleLabel(user.membership?.role);
-      document.querySelector('#membership-state').textContent = user.membership?.is_member ? '인증됨' : '미인증';
+      const member = Boolean(user.membership?.is_member);
+      document.querySelector('#membership-state').textContent = member ? '시즌3 맹원 확인됨' : '시즌3 맹원 미확인';
+      document.querySelector('#membership-state').dataset.member = String(member);
+      document.querySelector('#membership-help').textContent = member ? '시즌3 맹원으로 확인된 계정입니다.' : '마지막 확인에서 시즌3 맹원 자격이 확인되지 않았습니다. 서비스별 별도 허용 여부는 관리자에게 문의해 주세요.';
+      document.querySelector('#membership-checked').textContent = formatDate(user.membership?.checked_at);
+      const avatar = document.querySelector('#profile-avatar');
+      if (user.avatar_url) {
+        avatar.addEventListener('error', () => { avatar.hidden = true; document.querySelector('#avatar-fallback').hidden = false; });
+        avatar.src = user.avatar_url; avatar.hidden = false; document.querySelector('#avatar-fallback').hidden = true;
+      }
       renderServices(Array.isArray(summary.services) ? summary.services : []);
       hideAllStates();
       content.hidden = false;
@@ -228,10 +238,32 @@ export function accountPageHtml(): string {
       return payload.data;
     }
 
-    loginButton.addEventListener('click', () => auth.login());
+    async function startLogin(button) {
+      button.disabled = true;
+      try { auth.clearLocalState(); await auth.login(); }
+      catch { button.disabled = false; showError('로그인을 시작하지 못했습니다. 다시 시도해 주세요.'); }
+    }
+    loginButton.addEventListener('click', () => startLogin(loginButton));
+    document.querySelector('#retry-login').addEventListener('click', (event) => startLogin(event.currentTarget));
+    document.querySelector('#recheck').addEventListener('click', async (event) => {
+      const button = event.currentTarget;
+      const status = document.querySelector('#recheck-status');
+      button.disabled = true; status.textContent = 'Discord 인증으로 이동합니다…';
+      try {
+        const token = auth.getAccessToken();
+        const response = await fetch('/account/api/recheck', { method: 'POST', headers: { Authorization: 'Bearer ' + (token || '') } });
+        if (response.status === 401) { showError('로그인이 만료되었습니다. 다시 로그인해 주세요.'); return; }
+        if (!response.ok) throw new Error('recheck failed');
+        auth.clearLocalState();
+        await auth.login();
+      } catch { status.textContent = '인증을 시작하지 못했습니다. 잠시 후 다시 시도해 주세요.'; }
+      finally { button.disabled = false; }
+    });
     globalLogout.addEventListener('click', async () => {
       if (!confirm('모든 낙월 서비스에서 로그아웃할까요?')) return;
-      await auth.logout({ global: true, returnTo: location.origin + '/account' });
+      globalLogout.disabled = true;
+      try { await auth.logout({ global: true, returnTo: location.origin + '/account' }); }
+      catch { document.querySelector('#logout-status').textContent = '로그아웃하지 못했습니다. 다시 시도해 주세요.'; globalLogout.disabled = false; }
     });
 
     try {
@@ -260,6 +292,21 @@ export function accountPageHtml(): string {
 
 export function registerAccountRoutes(app: Hono<{ Bindings: Env }>): void {
   app.get('/account', (c) => c.html(accountPageHtml()));
+
+  app.use('/account/api/*', async (c, next) => { c.header('Cache-Control', 'no-store'); await next(); });
+
+  app.post('/account/api/recheck', async (c) => {
+    const origin = c.req.header('Origin');
+    if (origin && origin !== new URL(c.req.url).origin) return jsonError(c, 403, 'ORIGIN_DENIED', '허용되지 않은 요청입니다.');
+    const token = bearerToken(c.req.header('Authorization'));
+    if (!token || !await authenticateAccessToken(c.env, token, ACCOUNT_CLIENT_ID)) {
+      return jsonError(c, 401, 'INVALID_ACCOUNT_TOKEN', '다시 로그인해 주세요.');
+    }
+    // 현재 브라우저의 SSO만 종료한다. 다른 서비스의 access token은 유지한다.
+    await deleteSession(c.env, parseCookies(c.req.header('Cookie')).nakwol_sid);
+    c.header('Set-Cookie', clearSessionCookie(c.env.COOKIE_SECURE !== 'false'));
+    return c.json({ ok: true });
+  });
 
   app.get('/account/api/summary', async (c) => {
     const token = bearerToken(c.req.header('Authorization'));
