@@ -29,7 +29,7 @@ for (const provider of ['cloudflare-workers','cloudflare-pages']) test(`${provid
     await new Promise(resolve=>setTimeout(resolve,50));
     if(revoked)return new Response(null,{status:401});
     if(request.headers.get('Authorization')!=='Bearer fixture-member-token')return new Response(null,{status:403});
-    return Response.json({ok:true,data:{status:'active',membership:{is_member:true}},expires_at:Date.now()+60000});
+    return Response.json({ok:true,data:{id:'fixture-user',status:'active',membership:{is_member:true}},application_access:{client_id:'test-site',allowed:true,source:'policy'},expires_at:Date.now()+3600000});
   }};
   const mf=new miniflare.Miniflare('convertV4MiniflareOptions' in miniflare?miniflare.convertV4MiniflareOptions(mfOptions):mfOptions);
   t.after(async()=>{await mf.dispose();await rm(root,{recursive:true,force:true});});
@@ -51,10 +51,10 @@ for (const provider of ['cloudflare-workers','cloudflare-pages']) test(`${provid
   const before=checks;
   const batch=await Promise.all(Array.from({length:8},()=>mf.dispatchFetch('https://site.test/private.json',{headers:{Cookie:cookie,'If-None-Match':etag}})));
   for(const item of batch){assert.equal(item.status,304);assert.equal(await item.text(),'');}
-  assert.ok(checks-before<8, `expected fewer than 8 AUTH calls, got ${checks-before}`);
+  assert.equal(checks,before,'valid lease must not call AUTH for conditional assets');
   const after=checks;
   assert.equal((await mf.dispatchFetch('https://site.test/private.json',{headers:{Cookie:cookie,'If-None-Match':etag}})).status,304);
-  assert.equal(checks,after+1,'completed checks must not be reused');
+  assert.equal(checks,after,'valid lease must authorize the next independent request locally');
   const range=await mf.dispatchFetch('https://site.test/video.mp4',{headers:{Cookie:cookie,Range:'bytes=0-6'}});
   // Static Assets may return the full entity when Range is unsupported locally.
   assert.ok([200,206].includes(range.status));
