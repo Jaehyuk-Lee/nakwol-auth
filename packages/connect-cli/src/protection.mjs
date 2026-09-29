@@ -97,15 +97,15 @@ export async function installProtection(options = {}) {
     try { await stat(join(root, file)); if (!config.protection) throw new Error(`기존 파일을 덮어쓸 수 없습니다: ${file}`); }
     catch (error) { if (error.code !== 'ENOENT') throw error; }
   }
-  const buildPackage = await updateBuildHook(root);
+  const buildPackage = await updateBuildHook(root, config.protection?.updateChannel === 'managed');
   await installIntegration(root, project, config.clientId, { ...config, serverGate:true, siteUrl:url });
   await mkdir(join(root, GENERATED), { recursive: true });
   for (const [file, content] of Object.entries(files)) await writeFile(join(root, file), content);
   await writeFile(join(root, 'package.json'), JSON.stringify(buildPackage, null, 2) + String.fromCharCode(10));
-  const protection = { runtimeVersion, updateChannel:'latest', provider: options.provider, projectName, siteUrl: url, clientId:config.clientId, accessPolicy, authOrigin, assetsDirectory: inventory.directory, files: Object.fromEntries(Object.entries(files).map(([file, content]) => [file, hash(content)])) };
+  const protection = { runtimeVersion, updateChannel:config.protection?.updateChannel === 'managed' ? 'managed' : 'latest', ...(config.protection?.automation ? {automation:config.protection.automation} : {}), ...(config.protection?.rollback ? {rollback:config.protection.rollback} : {}), provider: options.provider, projectName, siteUrl: url, clientId:config.clientId, accessPolicy, authOrigin, assetsDirectory: inventory.directory, files: Object.fromEntries(Object.entries(files).map(([file, content]) => [file, hash(content)])) };
   await writeProjectConfig(root, { ...config, accessPolicy, authOrigin, protection });
   return { ok: true, protectionStatus: 'configured', protection, nextSteps: [
-    'npm run build는 최신 공식 공통 게이트를 반영합니다. 별도 빌드 도구/배포 명령은 빌드 후 npm run nakwol:gate를 실행하세요.',
+    'npm run build는 설정된 버전의 공식 공통 게이트를 반영합니다. 별도 빌드 도구/배포 명령은 빌드 후 npm run nakwol:gate를 실행하세요.',
     'Connect의 서버 로그아웃 연동이 반영되도록 사이트를 다시 빌드하세요.',
     options.provider === 'cloudflare-pages' ? `npx wrangler pages secret put NAKWOL_SESSION_SECRET --project-name ${projectName} (무작위 32자 이상)` : `npx wrangler secret put NAKWOL_SESSION_SECRET --config ${WRANGLER_FILE} (무작위 32자 이상, 저장소에 넣지 않기)`,
     options.provider === 'cloudflare-pages' ? `npx wrangler pages deploy ${inventory.directory} --project-name ${projectName} (운영 브랜치를 명시하고 Pages Functions fail-open을 비활성화하세요)` : `npx wrangler deploy --config ${WRANGLER_FILE}`,
@@ -114,11 +114,16 @@ export async function installProtection(options = {}) {
   ] };
 }
 
-async function updateBuildHook(root) {
+async function updateBuildHook(root, managed = false) {
   let pkg;
   try { pkg = JSON.parse(await readFile(join(root, 'package.json'), 'utf8')); }
   catch (error) { if (error.code !== 'ENOENT') throw error; pkg = { private:true }; }
+  if (managed && pkg.devDependencies?.['nakwol-connect'] !== runtimeVersion) throw new Error('Managed gate requires an exact installed nakwol-connect version matching package.json.');
   const scripts = { ...pkg.scripts };
+  if (managed) {
+    if (scripts['nakwol:gate'] !== 'nakwol-connect protect update') throw new Error('Managed gate hook was changed; refusing network-based fallback.');
+    return pkg;
+  }
   if (scripts['nakwol:gate'] && scripts['nakwol:gate'] !== UPDATE_COMMAND && scripts['nakwol:gate'] !== 'npx --yes nakwol-connect@latest protect update' && scripts['nakwol:gate'] !== 'npx --yes nakwol-connect@~0.6.3 protect update') throw new Error('기존 nakwol:gate 스크립트를 덮어쓰지 않습니다.');
   scripts['nakwol:gate'] = UPDATE_COMMAND;
   if (!scripts.build) scripts.build = 'npm run nakwol:gate';
