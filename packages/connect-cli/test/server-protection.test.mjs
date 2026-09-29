@@ -140,7 +140,7 @@ test('server gate enforces authentication on content, HEAD and Range; rechecks r
   for(const init of [{},{method:'HEAD'},{headers:{Range:'bytes=0-5'}},{headers:{Cookie:`${COOKIE}=invalid`}}])assert.equal((await request('/private.json',init)).status,401);
   assert.equal(assetCalls,0);
   const html=await (await request('/',{headers:{Accept:'text/html'}})).text();
-  assert.match(html,/NAKWOL 로그인/); assert.doesNotMatch(html,/PRIVATE/);
+  assert.match(html,/<main id="auth-panel" hidden>/); assert.doesNotMatch(html,/PRIVATE/);
   const establish=()=>request('/__nakwol/session',{method:'POST',headers:{Origin:'https://site.test','Content-Type':'application/json'},body:JSON.stringify({access_token:'test-token'})});
   member=false;assert.equal((await establish()).status,403);
   manualClient='other-site';assert.equal((await establish()).status,403);
@@ -179,7 +179,7 @@ test('login page driver restores deep links and explains role denial without rel
   const execute=new AsyncFunction('sdk','location','document','sessionStorage','fetch',source);
   const storage=new Map();
   const sessionStorage={getItem:k=>storage.get(k)||null,setItem:(k,v)=>storage.set(k,v),removeItem:k=>storage.delete(k)};
-  const elements={status:{},login:{},retry:{hidden:true},recovery:{hidden:true}};
+  const elements={status:{},login:{},retry:{hidden:true},recovery:{hidden:true},'auth-panel':{hidden:true}};
   const document={getElementById:id=>elements[id]};
   let target=null,denied=false;
   const location={origin:'https://site.test',pathname:'/private/deck',search:'',hash:'',replace:p=>{target=p;},reload(){}};
