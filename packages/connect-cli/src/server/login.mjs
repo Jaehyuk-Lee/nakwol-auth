@@ -10,7 +10,10 @@ const recovery=document.getElementById('recovery');
 const recoveryUrl=new URL('/account',settings.authOrigin);recoveryUrl.searchParams.set('client_id',settings.clientId);recoveryUrl.searchParams.set('recovery','1');recovery.href=recoveryUrl.href;
 const key='nakwol:server:return:'+settings.clientId;
 const safe=p=>typeof p==='string' && p.startsWith('/') && !p.startsWith('//') && !p.startsWith('/__nakwol/') && !/[\\\\\\u0000-\\u001f]/.test(p) && new URL(p,location.origin).origin===location.origin;
-try { if(location.pathname!=='/' && !location.pathname.startsWith('/__nakwol/')) sessionStorage.setItem(key,JSON.stringify({path:location.pathname+location.search+location.hash,at:Date.now()})); } catch { /* Return to root when storage is unavailable. */ }
+const currentPath=location.pathname+location.search+location.hash;
+const callback=new URLSearchParams(location.search);
+const isCallback=callback.has('state')&&(callback.has('code')||callback.has('error'));
+try { if(!isCallback && currentPath!=='/' && safe(currentPath)) sessionStorage.setItem(key,JSON.stringify({path:currentPath,at:Date.now()})); } catch { /* Return to root when storage is unavailable. */ }
 retry.onclick=()=>location.reload();
 const fail=(code)=>{recovery.hidden=false;statusEl.textContent=code==='access_denied'||code===403?'이 사이트의 접근 권한이 없습니다. member 사이트는 시즌3 역할이 필요하며 추가 역할 조건이 있을 수 있습니다. 역할을 받았다면 계정 페이지에서 다시 확인해 주세요. 관리자 차단이나 서비스 설정 문제는 관리자 확인이 필요합니다.':code===503?'인증 서버를 확인할 수 없습니다. 잠시 후 다시 확인해 주세요.':'로그인을 완료하지 못했습니다. 다시 로그인해 주세요.';login.disabled=false;retry.hidden=false;};
 try {
