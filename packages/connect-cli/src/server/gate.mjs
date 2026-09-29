@@ -1,5 +1,6 @@
 import { loginPage } from './login.mjs';
 
+export const RUNTIME_VERSION = '0.7.1';
 export const COOKIE = '__Host-nakwol_connect';
 export const AUTHORIZATION_LEASE_MS = 5 * 60 * 1000;
 const encoder = new TextEncoder();
@@ -10,7 +11,7 @@ function response(body, status, headers = {}) {
   return new Response(body, { status, headers: {
     'Cache-Control': 'private, no-store, max-age=0',
     'Vary': 'Cookie', 'X-Content-Type-Options': 'nosniff',
-    'X-Nakwol-Gate': 'v1', ...headers,
+    'X-Nakwol-Gate': 'v1', 'X-Nakwol-Runtime': RUNTIME_VERSION, ...headers,
   } });
 }
 function denied(request, status, settings) {
@@ -201,6 +202,7 @@ export async function serveProtected(request, env, settings) {
   headers.set('Vary', [headers.get('Vary'), 'Cookie'].filter(Boolean).join(', '));
   if (renewedCookie) headers.set('Set-Cookie', renewedCookie);
   headers.set('X-Nakwol-Gate', 'v1');
+  headers.set('X-Nakwol-Runtime', RUNTIME_VERSION);
   headers.set('X-Content-Type-Options', 'nosniff');
   return new Response(asset.body, { status: asset.status, headers });
 }

@@ -210,9 +210,12 @@ function selectApp(app) {
   renderGuide(app);
   renderDiagnostics(null);
   loadEvents().catch((error) => renderEventsError(error.message));
+  loadGateReports();
 }
 
 function startCreate() {
+  reportRequest++;
+  clear($("#gate-reports"));
   state.creating = true;
   state.selected = null;
   ui.heading.textContent = '새 앱 등록';
@@ -470,3 +473,33 @@ ui.refreshEvents.addEventListener('click', () => loadEvents().catch((error) => r
     renderAuth();
   }
 })();
+
+let reportRequest = 0;
+async function loadGateReports() {
+  const target = $('#gate-reports');
+  const clientId = state.selected?.client_id;
+  const request = ++reportRequest;
+  clear(target);
+  if (!clientId) { target.append(el('p','muted','앱을 선택하세요.')); return; }
+  target.append(el('p','muted','배포 기록을 불러오는 중…'));
+  try {
+    const payload = await api('/admin/api/apps/' + encodeURIComponent(clientId) + '/gate-reports');
+    if (request !== reportRequest || state.selected?.client_id !== clientId) return;
+    clear(target);
+    const reports = payload.data.reports;
+    if (!reports.length) { target.append(el('p','muted','아직 받은 배포 보고가 없습니다. protect report와 CI 보고 토큰을 연결하세요.')); return; }
+    const labels = {verified:'비로그인 차단 검사 통과',failed:'차단 검사 실패',indeterminate:'검사 결과 불확실',recovered:'롤백 후 차단 검사 통과','rollback-failed':'롤백 복구 확인 실패'};
+    for (const report of reports) {
+      const row = el('div','event-row');
+      const top = el('div','event-top');
+      top.append(el('strong',report.status === 'failed' || report.status === 'rollback-failed' ? 'error-text' : '',labels[report.status] || report.status),el('time','',new Date(report.received_at).toLocaleString('ko-KR')));
+      row.append(top,el('p','muted','설치 ' + (report.installed_version || '미확인') + ' · 배포 관측 ' + (report.runtime_version || '미확인') + ' · 검사 ' + report.checked_count + '건 / 실패 ' + report.failure_count + '건'),el('code','',report.service_url),el('code','','commit ' + report.commit_sha));
+      if (report.deployment_id) row.append(el('code','','배포 ' + report.deployment_id));
+      target.append(row);
+    }
+  } catch(error) {
+    if (request !== reportRequest) return;
+    clear(target); target.append(el('p','error-text',error.message));
+  }
+}
+$('#refresh-gate-reports').addEventListener('click',loadGateReports);

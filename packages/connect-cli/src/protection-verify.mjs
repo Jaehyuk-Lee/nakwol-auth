@@ -14,6 +14,10 @@ export async function verifyProtection(options = {}) {
   const root = options.root || process.cwd();
   const custom = options.provider === 'custom';
   let primary, inventory;
+  let expectedRuntime = options.expectRuntime;
+  const deployedVersions = new Set();
+  if (expectedRuntime && expectedRuntime !== 'installed' && !/^[0-9]+[.][0-9]+[.][0-9]+$/.test(expectedRuntime)) throw new Error('--expect-runtime requires an exact version or installed.');
+  if (custom && expectedRuntime === 'installed') throw new Error('Custom verification requires an explicit expected runtime version.');
   if (custom) {
     if (!options.url || !options.paths) throw new Error('custom 검증에는 --url과 보호 대상 --paths가 필요합니다.');
     primary = siteUrl(options.url);
@@ -21,6 +25,10 @@ export async function verifyProtection(options = {}) {
   } else {
     const config = await readProjectConfig(root);
     const installed = await inspectProtection(root, config);
+    if (expectedRuntime === 'installed') {
+      expectedRuntime = config?.protection?.runtimeVersion;
+      if (!expectedRuntime) throw new Error('Installed runtime version is unknown.');
+    }
     if (!installed.ok) return { ok: false, protectionStatus: 'unverified', checks: [{ name: 'server_gate', ok: false, detail: installed.detail }] };
     primary = siteUrl(options.url || config.protection.siteUrl);
     if (primary !== config.protection.siteUrl) throw new Error('--url이 설치 시 지정한 배포 주소와 다릅니다. protect install로 설정을 갱신하세요.');
@@ -52,8 +60,10 @@ export async function verifyProtection(options = {}) {
       try {
         const res = await fetchImpl(url, { method: variant.method, headers: variant.headers, redirect: 'manual', cache: 'no-store', signal: AbortSignal.timeout(10000) });
         const noStore = (res.headers.get('Cache-Control') || '').includes('no-store');
-        const ok = [401, 403].includes(res.status) && res.headers.get('X-Nakwol-Gate') === 'v1' && noStore;
-        checks[index] = { name: `${origin.slice(0, -1)}${path} ${variant.name}`, ok, detail: `HTTP ${res.status}; gate=${res.headers.get('X-Nakwol-Gate') || 'missing'}; no-store=${noStore}` };
+        const observedRuntime = res.headers.get('X-Nakwol-Runtime');
+        deployedVersions.add(observedRuntime || 'unknown');
+        const ok = (!expectedRuntime || observedRuntime === expectedRuntime) && [401, 403].includes(res.status) && res.headers.get('X-Nakwol-Gate') === 'v1' && noStore;
+        checks[index] = { name: `${origin.slice(0, -1)}${path} ${variant.name}`, ok, detail: `HTTP ${res.status}; gate=${res.headers.get('X-Nakwol-Gate') || 'missing'}; no-store=${noStore}; runtime=${observedRuntime || 'unknown'}` };
         await res.body?.cancel();
       } catch (error) {
         checks[index] = { name: `${origin.slice(0, -1)}${path} ${variant.name}`, ok: false, detail: error instanceof Error ? error.message : 'request failed' };
@@ -62,6 +72,6 @@ export async function verifyProtection(options = {}) {
   }
   await Promise.all(Array.from({ length: 6 }, run));
   const ok = checks.every(check => check.ok);
-  return { ok, inspectionScope: custom ? 'explicit-paths' : 'installed-assets', protectionStatus: ok ? 'anonymous-blocking-verified' : 'verification-failed', checkedAt: new Date().toISOString(), origins, assetCount: inventory.paths.length, requestCount: checks.length, checks,
+  return { ok, expectedRuntime:expectedRuntime || null, observedRuntimeVersions:[...deployedVersions].sort(), inspectionScope: custom ? 'explicit-paths' : 'installed-assets', protectionStatus: ok ? 'anonymous-blocking-verified' : 'verification-failed', checkedAt: new Date().toISOString(), origins, assetCount: inventory.paths.length, requestCount: checks.length, checks,
     limitations: [custom ? '명시한 경로의 비로그인 차단만 검사했습니다. 설치 구성·전체 파일·게이트 내부 구현은 검증하지 않습니다.' : '검사한 배포 주소와 현재 로컬 빌드의 경로에 대한 비로그인 차단 결과입니다.', '정상 시즌3 계정 로그인, 권한 없는 계정 거부, 로그아웃은 실제 브라우저로 별도 확인하세요.', '열거하지 않은 이전 배포·원본 스토리지·다른 도메인은 검증하지 않습니다. 자동으로 찾아내거나 삭제하지 않습니다.'] };
 }
