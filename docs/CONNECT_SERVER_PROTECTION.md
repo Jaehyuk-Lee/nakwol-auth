@@ -79,11 +79,11 @@ npx --yes nakwol-connect protect verify --url https://YOUR-SITE/ --alternate-ori
 
 ## Cloudflare 이외의 호스팅
 
-Vercel·Netlify·자체 서버에서는 파일과 API를 보내기 전에 실행되는 서버 게이트를 연결해야 합니다. 현재 CLI는 이 환경의 게이트 파일을 자동 생성하지 않습니다. 기존 미들웨어와 라우팅을 확인한 뒤 아래 계약에 맞춰 구현하세요. Embed 설치만으로 대체하지 마세요.
+Vercel·Netlify·자체 서버도 `nakwol-connect/server`의 공식 공통 게이트를 사용합니다. 인증·쿠키·권한·로그인 복귀 로직을 직접 작성하지 않습니다. 각 호스팅은 보호 콘텐츠를 반환하는 함수만 연결합니다. 해당 호스팅의 라우팅 연결은 아직 CLI 자동 생성 대상이 아닙니다. Embed 설치만으로 대체하지 마세요.
 
 GitHub Pages처럼 서버 코드를 실행할 수 없는 정적 호스팅은 공개 파일에 이 게이트를 적용할 수 없습니다. 보호 파일을 Cloudflare Workers/Pages 또는 다른 서버 실행 환경으로 옮기고, 이전 공개 주소도 닫아야 합니다.
 
-### 직접 구현하는 게이트의 계약
+### 호스팅 연결이 지켜야 할 계약
 
 - HTML뿐 아니라 JS·JSON·이미지·다운로드·API의 모든 경로와 GET/HEAD/Range가 게이트를 거쳐야 합니다. 원본 스토리지나 미들웨어 제외 경로로 우회할 수 없어야 합니다.
 - AUTH SDK로 로그인하고, 등록된 같은 사이트 콜백으로 돌아온 뒤 토큰을 서버 세션으로 교환합니다. 토큰을 URL에 넣지 않습니다.
@@ -108,3 +108,47 @@ npx --yes nakwol-connect protect verify --provider custom --url https://YOUR-SIT
 서버 로그인 화면은 `/?deck=123#detail`을 포함해 원래 주소를 보존하며, OAuth 콜백이 그 주소를 덮어쓰지 않습니다. 동시 요청은 진행 중인 동일 앱·토큰의 AUTH 검사를 공유하되, 완료된 권한 결과를 재사용하지 않습니다. ETag가 있는 파일은 브라우저에서 보관할 수 있지만 매번 게이트를 통과해 재검증해야 합니다. 인증 거부 응답은 계속 no-store입니다.
 
 **이미 설치된 사이트의 게이트는 AUTH 배포만으로 교체되지 않습니다.** 새 CLI로 기존과 같은 provider/assets/url을 사용해 `protect install`을 다시 실행하고, 사이트를 빌드·배포한 뒤 `protect verify`로 확인하세요. 게이트를 직접 수정했다면 자동 덮어쓰기가 거부되므로 변경 내용을 먼저 비교해야 합니다.
+
+## 공식 공통 게이트와 업데이트
+
+### Workers / Pages: 빌드할 때 최신 게이트 적용
+
+새 `protect install`은 `package.json`에 `nakwol:gate` 스크립트와 빌드 후 갱신 단계를 등록합니다. 기존 build/postbuild 작업은 유지합니다. 빌드 명령이 없는 HTML 프로젝트에는 게이트 생성용 build를 제공합니다.
+
+```bash
+npm run build
+```
+
+이 과정에서 `npx --yes nakwol-connect@latest protect update`가 저장된 앱·역할 정책·배포 주소로 공식 패키지의 게이트를 재생성합니다. 배포 전에 갱신이 실패하면 빌드도 실패하므로 실패를 무시하고 배포하지 마세요. `npm ci --ignore-scripts` 등으로 훅을 비활성화하거나 npm 외 빌드 명령을 쓰면 빌드 후 `npm run nakwol:gate`를 명시적으로 실행하세요. Pages의 clean build로 사라진 `_worker.js`와 `_routes.json`도 복원합니다.
+
+기존 공식 설치는 아래 명령을 **한 번** 실행해 자동 갱신 흐름으로 전환합니다. 이후 게이트 소스를 직접 편집할 필요가 없습니다.
+
+```bash
+npx --yes nakwol-connect@latest protect update
+```
+
+빌드한 결과를 기존 배포 경로로 배포하고 `protect verify`를 실행하세요. `runtimeVersion`은 생성에 사용한 공통 게이트 버전입니다. 설치 파일을 직접 수정했다면 자동 갱신은 중단하며 변경 내용을 보존합니다.
+
+### 자체 서버: 공식 API 호출
+
+```js
+import { createGate } from 'nakwol-connect/server';
+
+const gate = createGate({
+  clientId: 'YOUR_CLIENT_ID',
+  accessPolicy: 'member',
+  authOrigin: 'https://nakwol-auth.sepsd21.workers.dev',
+  siteUrl: 'https://YOUR-SITE/',
+});
+
+// 호스팅 어댑터가 Request와 비밀키, 비공개 콘텐츠 핸들러를 전달합니다.
+export function handle(request, sessionSecret, serveProtectedContent) {
+  return gate(request, { sessionSecret, serveAsset: serveProtectedContent });
+}
+```
+
+`serveProtectedContent(request)`는 Web Response를 반환하며, 공통 게이트가 권한을 승인한 경우에만 호출됩니다. 모든 보호 경로와 `/__nakwol/*`를 이 핸들러로 연결하고 원본 파일을 별도로 공개하지 마세요. AUTH OAuth를 따로 구현하지 않습니다.
+
+자체 서버의 CI는 빌드 전에 `npm install --save-exact nakwol-connect@latest`로 공식 패키지를 갱신하고 테스트·빌드·배포합니다. 기존 의존성 갱신 자동화가 있다면 같은 패키지를 포함하면 됩니다. 실행 중에 원격 JavaScript를 받아 실행하는 구조는 아닙니다.
+
+**공통 로직 수정은 공식 패키지 한 곳에서 합니다. 반영 시점은 각 사이트의 다음 빌드·배포입니다.** 사이트를 재배포하지 않고 이미 실행 중인 서버 코드가 바뀌지는 않습니다. 아직 공식 공통 게이트를 사용하지 않는 자체 구현은 최초 한 번 위 API로 연결해야 합니다.

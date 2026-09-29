@@ -129,3 +129,17 @@ export async function serveProtected(request, env, settings) {
   headers.set('X-Content-Type-Options', 'nosniff');
   return new Response(asset.body, { status: asset.status, headers });
 }
+
+// Public server API: hosts provide only their secret and protected content handler.
+export function createGate(settings) {
+  const config = Object.freeze({ ...settings });
+  for (const name of ['siteUrl', 'authOrigin']) {
+    const url = new URL(config[name]);
+    if (url.protocol !== 'https:' || url.username || url.password || url.pathname !== '/' || url.search || url.hash) throw new Error(`${name} must be HTTPS`);
+  }
+  if (!config.clientId || !['member', 'guest', 'admin'].includes(config.accessPolicy)) throw new Error('clientId and accessPolicy are required');
+  return (request, { sessionSecret, serveAsset }) => serveProtected(request, {
+    NAKWOL_SESSION_SECRET: sessionSecret,
+    ASSETS: { fetch: serveAsset },
+  }, config);
+}

@@ -5,7 +5,7 @@ import {
   dataStatusProject, dataSetProject, dataAddProject, dataRemoveProject,
 } from '../src/commands.mjs';
 import { dataDescribeProject } from '../src/discovery.mjs';
-import { installProtection } from '../src/protection.mjs';
+import { installProtection, updateProtection } from '../src/protection.mjs';
 import { verifyProtection } from '../src/protection-verify.mjs';
 
 function parse(argv) {
@@ -18,6 +18,7 @@ async function main(){
   const{command,options,positionals}=parse(process.argv.slice(2));options.authOrigin||=process.env.NAKWOL_AUTH_ORIGIN||DEFAULT_AUTH_ORIGIN;if(!options.dataOrigin&&process.env.NAKWOL_DATA_ORIGIN)options.dataOrigin=process.env.NAKWOL_DATA_ORIGIN;options.output=options.json?()=>{}:console.log;let result;
   if(command==='protect'){
     if(positionals[0]==='install')result=await installProtection(options);
+    else if(positionals[0]==='update')result=await updateProtection(options);
     else if(positionals[0]==='verify')result=await verifyProtection(options);
     else throw new Error('사용법: nakwol-connect protect install --provider <cloudflare-workers|cloudflare-pages> --assets dist --url https://SITE/ 또는 protect verify --url https://SITE/ [--alternate-origins URL,URL] [--paths /api/private]');
   }
@@ -25,6 +26,7 @@ async function main(){
   else if(command==='help'||command==='--help'||command==='-h'){console.log(`NAKWOL Connect CLI v0.6.3\n\nCommands:\n  init       프로젝트 감지 → AUTH 앱 → DATA scope → Connect 설치\n  doctor     연결 + 배포 사이트의 실제 차단 검사 (required는 검증 전 실패)
   protect install --provider <cloudflare-workers|cloudflare-pages> --assets dist --url https://SITE/
              정적 빌드의 서버 게이트 설치 (배포는 별도)
+  protect update   저장된 설정으로 공통 게이트 갱신 (재배포 필요)
   protect verify --url https://SITE/ [--alternate-origins URL,URL] [--paths /private]
   protect verify --provider custom --url https://SITE/ --paths /,/data.json
              직접 구현한 게이트도 명시한 경로의 비로그인 차단 검사 가능

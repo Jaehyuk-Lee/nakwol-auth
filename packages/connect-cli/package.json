@@ -11,5 +11,6 @@
   "homepage": "https://nakwol-auth.sepsd21.workers.dev/llms.txt",
   "keywords": ["nakwol", "authentication", "oauth", "discord", "data", "openapi", "cli", "agent", "codex", "cloudflare"],
   "publishConfig": { "access": "public", "registry": "https://registry.npmjs.org/" },
+  "exports": { "./server": "./src/server/gate.mjs" },
   "private": false
 }
