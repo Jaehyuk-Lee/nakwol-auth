@@ -71,7 +71,7 @@ export async function installProtection(options = {}) {
   const root = options.root || process.cwd();
   const config = await readProjectConfig(root);
   if (!config?.clientId) throw new Error('먼저 nakwol-connect init을 실행하세요.');
-  if (!['cloudflare-workers','cloudflare-pages'].includes(options.provider)) throw new Error('지원 환경: --provider cloudflare-workers 또는 cloudflare-pages (정적 빌드).');
+  if (!['cloudflare-workers','cloudflare-pages'].includes(options.provider)) throw new Error('자동 설치 지원 환경: --provider cloudflare-workers 또는 cloudflare-pages (정적 빌드). Vercel·Netlify 등은 서버 게이트를 직접 연동한 뒤 protect verify --provider custom --url https://SITE/ --paths /,/data.json 으로 검사하세요. GitHub Pages는 서버 게이트를 실행할 수 없으므로 보호 콘텐츠를 서버가 있는 호스팅으로 옮겨야 합니다. Embed만으로는 파일을 보호하지 못합니다.');
   if (config.protection && config.protection.provider !== options.provider) throw new Error('기존 배포의 공개 경로를 남길 수 있으므로 provider를 자동 변경하지 않습니다.');
   if (config.protection && options.assets && options.assets !== config.protection.assetsDirectory) throw new Error('기존 보호 파일을 보존하기 위해 자산 폴더 변경은 자동 적용하지 않습니다.');
   if (config.authMode !== 'required') throw new Error('공개 페이지(optional)에는 서버 게이트를 자동 적용하지 않습니다. init --auth required로 정책을 먼저 정하세요.');
