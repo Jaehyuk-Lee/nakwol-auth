@@ -21,3 +21,23 @@ for (const path of ['/?deck=123#detail', '/build/100?user=1#unit']) {
     assert.equal(target, path);
   });
 }
+
+for (const status of [401,403]) test(`server session denial ${status} clears credentials and allows manual retry`, async () => {
+  const source=loginPage({clientId:'site',authOrigin:'https://auth.test',siteUrl:'https://site.test/'},401).split('<script type="module">')[1].split('</script>')[0].replace("await import(settings.authOrigin+'/sdk/v0.3.1/nakwol-auth-web.js')",'sdk');
+  const run=new (Object.getPrototypeOf(async function(){}).constructor)('sdk','location','document','sessionStorage','fetch',source);
+  let cleared=0,denied=0,retried=0;
+  const elements=Object.fromEntries(['status','login','retry','recovery'].map(k=>[k,{}]));
+  const sdk={NakwolAuthClient:class{
+    async bootstrap(){return {};}
+    getAccessToken(){return 'fixture';}
+    clearDeniedLogin(error){assert.equal(error.code,'access_denied');denied++;}
+    clearLocalState(){cleared++;}
+    async login(){retried++;}
+  }};
+  await run(sdk,{origin:'https://site.test',pathname:'/',search:'',hash:'',replace(){throw new Error('must not redirect');}},{getElementById:k=>elements[k]},{getItem(){return null;},setItem(){},removeItem(){}},async()=>new Response(null,{status}));
+  assert.equal(denied,1);
+  assert.equal(elements.login.disabled,false);
+  elements.login.onclick();
+  assert.equal(cleared,1);
+  assert.equal(retried,1);
+});

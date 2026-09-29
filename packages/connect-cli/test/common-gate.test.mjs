@@ -20,8 +20,8 @@ for (const provider of ['cloudflare-workers','cloudflare-pages']) test(`${provid
   await installProtection({root,provider,assets:'dist',url:'https://site.test/'});
   const pkg=JSON.parse(await readFile(join(root,'package.json'),'utf8'));
   assert.equal(pkg.scripts.build,'vite build');
-  assert.equal(pkg.scripts.postbuild,'node existing-task.mjs && npm run nakwol:gate');
-  assert.equal(pkg.scripts['nakwol:gate'],'npx --yes nakwol-connect@latest protect update');
+  assert.equal(pkg.scripts.postbuild,'npm run nakwol:gate && node existing-task.mjs');
+  assert.equal(pkg.scripts['nakwol:gate'],'npx --yes nakwol-connect@~0.6.3 protect update');
   if(provider==='cloudflare-pages') {
     await rm(join(root,'dist/_worker.js'));
     await rm(join(root,'dist/_routes.json'));

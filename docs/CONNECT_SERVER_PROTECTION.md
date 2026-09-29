@@ -1,3 +1,5 @@
+상세 기능 계약: [공통 게이트 명세](../packages/connect-cli/GATE_SPEC.md)
+
 # Connect 서버 보호 설치와 차단 검증
 
 ## 누가 무엇을 설정하나요?
@@ -75,7 +77,7 @@ npx --yes nakwol-connect protect verify --url https://YOUR-SITE/ --alternate-ori
 
 ## 봇 없이 동작하는 현재 권한 갱신 한계
 
-현재 AUTH는 Discord OAuth 때 본인의 서버 역할을 조회해 저장합니다. 봇은 로그인에 필요하지 않습니다. 게이트는 매 요청마다 **AUTH에 저장된 최신 역할 정보**를 검사하며 Discord를 직접 조회하지 않습니다. 중앙 SSO가 재사용되면 역할이 다시 조회되지 않을 수 있습니다. 중앙 세션은 비활동 10일/절대 30일, 앱 토큰은 1시간입니다. Discord 역할을 방금 제거했다고 즉시 차단되는 구조는 아닙니다. 이 기능 추가는 그 갱신 정책을 바꾸지 않습니다. 긴급 회수는 AUTH 운영자가 사용자 비활성 등 중앙 권한을 회수해야 합니다.
+현재 AUTH는 Discord OAuth 때 본인의 서버 역할을 조회해 저장합니다. 봇은 로그인에 필요하지 않습니다. 게이트는 매 요청마다 **AUTH에 저장된 최신 역할 정보**를 검사하며 Discord를 직접 조회하지 않습니다. 중앙 SSO가 재사용되면 역할이 다시 조회되지 않을 수 있습니다. 중앙 세션은 비활동 10일/절대 30일, 앱 토큰은 1시간입니다. Discord 역할을 방금 제거했다고 즉시 차단되는 구조는 아닙니다. 이 기능 추가는 그 갱신 정책을 바꾸지 않습니다. 역할 기반 접근은 마지막 Discord 확인 후 24시간이 지나면 재로그인을 요구합니다. 긴급 회수는 AUTH 운영자가 사용자 비활성 등 중앙 권한을 회수해야 합니다.
 
 ## Cloudflare 이외의 호스팅
 
@@ -119,7 +121,7 @@ npx --yes nakwol-connect protect verify --provider custom --url https://YOUR-SIT
 npm run build
 ```
 
-이 과정에서 `npx --yes nakwol-connect@latest protect update`가 저장된 앱·역할 정책·배포 주소로 공식 패키지의 게이트를 재생성합니다. 배포 전에 갱신이 실패하면 빌드도 실패하므로 실패를 무시하고 배포하지 마세요. `npm ci --ignore-scripts` 등으로 훅을 비활성화하거나 npm 외 빌드 명령을 쓰면 빌드 후 `npm run nakwol:gate`를 명시적으로 실행하세요. Pages의 clean build로 사라진 `_worker.js`와 `_routes.json`도 복원합니다.
+이 과정에서 `npx --yes nakwol-connect@~0.6.3 protect update`가 저장된 앱·역할 정책·배포 주소로 공식 패키지의 게이트를 재생성합니다. 배포 전에 갱신이 실패하면 빌드도 실패하므로 실패를 무시하고 배포하지 마세요. `npm ci --ignore-scripts` 등으로 훅을 비활성화하거나 npm 외 빌드 명령을 쓰면 빌드 후 `npm run nakwol:gate`를 명시적으로 실행하세요. Pages의 clean build로 사라진 `_worker.js`와 `_routes.json`도 복원합니다.
 
 기존 공식 설치는 아래 명령을 **한 번** 실행해 자동 갱신 흐름으로 전환합니다. 이후 게이트 소스를 직접 편집할 필요가 없습니다.
 

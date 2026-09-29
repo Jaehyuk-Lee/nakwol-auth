@@ -19,12 +19,12 @@ const fail=(code)=>{recovery.hidden=false;statusEl.textContent=code==='access_de
 try {
  const {NakwolAuthClient}=await import(settings.authOrigin+'/sdk/v0.3.1/nakwol-auth-web.js');
  const auth=new NakwolAuthClient({...settings,autoSso:settings.status===401});
- login.onclick=()=>{login.disabled=true;auth.login().catch(e=>fail(e.code));};
+ login.onclick=()=>{login.disabled=true;auth.clearLocalState();auth.login().catch(e=>fail(e.code));};
  if(settings.status===503){fail(503);}else{
  const user=await auth.bootstrap();
  if(!user){statusEl.textContent='Discord로 로그인하면 사이트 접근 권한을 확인합니다.';}else{
  const result=await fetch('/__nakwol/session',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({access_token:auth.getAccessToken()}),signal:AbortSignal.timeout(15000)});
- if(!result.ok){fail(result.status);}else{
+ if(!result.ok){if(result.status===401||result.status===403)auth.clearDeniedLogin({code:'access_denied'});fail(result.status);}else{
  // A disabled cookie must not cause an endless successful-login redirect loop.
  const attemptsKey=key+':attempts'; const attempts=JSON.parse(sessionStorage.getItem(attemptsKey)||'[]').filter(t=>Date.now()-t<60000);
  if(attempts.length>=2){sessionStorage.removeItem(attemptsKey);statusEl.textContent='로그인 쿠키를 저장하지 못했습니다. 이 사이트의 쿠키를 허용한 뒤 다시 확인해 주세요.';retry.hidden=false;recovery.hidden=false;}else{
