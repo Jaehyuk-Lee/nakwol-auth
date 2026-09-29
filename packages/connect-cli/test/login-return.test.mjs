@@ -41,3 +41,23 @@ for (const status of [401,403]) test(`server session denial ${status} clears cre
   assert.equal(cleared,1);
   assert.equal(retried,1);
 });
+
+for (const outcome of ['authenticated', 'anonymous', 'error']) test(`login controls wait for automatic SSO: ${outcome}`, async () => {
+  const html = loginPage({clientId:'site',authOrigin:'https://auth.test',siteUrl:'https://site.test/'},401);
+  const elements = Object.fromEntries(['status','login','retry','recovery'].map(id => [id, {hidden: new RegExp(`<[^>]+id="${id}"[^>]* hidden`).test(html)}]));
+  const source = html.split('<script type="module">')[1].split('</script>')[0].replace("await import(settings.authOrigin+'/sdk/v0.3.1/nakwol-auth-web.js')",'sdk');
+  let resolveUser, rejectUser;
+  const pending = new Promise((resolve,reject) => {resolveUser=resolve;rejectUser=reject;});
+  const sdk = {NakwolAuthClient:class {bootstrap(){return pending;} getAccessToken(){return 'fixture';}}};
+  const run = new (Object.getPrototypeOf(async function(){}).constructor)('sdk','location','document','sessionStorage','fetch',source);
+  let target;
+  const completed = run(sdk,{origin:'https://site.test',pathname:'/',search:'',hash:'',replace:p=>{target=p;}},{getElementById:id=>elements[id]},{getItem(){return null;},setItem(){},removeItem(){}},async()=>new Response(null,{status:204}));
+  assert.equal(elements.login.hidden,true);
+  assert.equal(elements.retry.hidden,true);
+  if(outcome==='error') rejectUser(new Error('fixture failure'));
+  else resolveUser(outcome==='authenticated'?{}:null);
+  await completed;
+  assert.equal(elements.login.hidden,outcome==='authenticated');
+  assert.equal(target,outcome==='authenticated'?'/':undefined);
+  if(outcome==='error') assert.equal(elements.retry.hidden,false);
+});

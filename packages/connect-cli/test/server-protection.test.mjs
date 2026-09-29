@@ -126,14 +126,14 @@ test('live probe rejects public content, redirects, outage and generic denial wi
 });
 
 test('server gate enforces authentication on content, HEAD and Range; rechecks revoked sessions', async t => {
-  const originalFetch=globalThis.fetch; t.after(()=>{globalThis.fetch=originalFetch;});
+  const originalFetch=globalThis.fetch, originalNow=Date.now; let now=originalNow(); Date.now=()=>now; t.after(()=>{globalThis.fetch=originalFetch;Date.now=originalNow;});
   let authStatus=200, member=true, assetCalls=0, manualClient=null;
   const settings={clientId:'test-site',authOrigin:'https://auth.test',siteUrl:'https://site.test/',accessPolicy:'member'};
   globalThis.fetch=async(url,init)=>{
     if(new URL(url).pathname==='/logout')return new Response(null,{status:204});
     assert.equal(new URL(url).searchParams.get('client_id'),'test-site');
     assert.equal(init.headers['X-Nakwol-Require-Member'],'true');
-    return authStatus===200?Response.json({ok:true,data:{status:'active',membership:{is_member:member}},application_access:{client_id:manualClient,allowed:true,source:'manual_grant'},expires_at:Date.now()+60000}):new Response(null,{status:authStatus});
+    return authStatus===200?Response.json({ok:true,data:{id:'fixture-user',status:'active',membership:{is_member:member}},application_access:{client_id:manualClient || 'test-site',allowed:true,source:manualClient?'manual_grant':'policy'},expires_at:Date.now()+3600000}):new Response(null,{status:authStatus});
   };
   const env={NAKWOL_SESSION_SECRET:'a'.repeat(40),ASSETS:{fetch:async()=>{assetCalls++;return new Response('PRIVATE',{headers:{'Cache-Control':'public'}});}}};
   const request=(path='/',init={})=>serveProtected(new Request('https://site.test'+path,init),env,settings);
@@ -151,7 +151,7 @@ test('server gate enforces authentication on content, HEAD and Range; rechecks r
   assert.match(session.headers.get('Set-Cookie'),/HttpOnly; Secure; SameSite=Lax/);
   const allowed=await request('/private.json',{headers:{Cookie:cookie}});
   assert.equal(await allowed.text(),'PRIVATE');assert.match(allowed.headers.get('Cache-Control'),/no-store/);
-  authStatus=403;
+  now+=300001; authStatus=403;
   const deniedSession=await request('/private.json',{headers:{Cookie:cookie}});
   assert.equal(deniedSession.status,403);
   assert.match(deniedSession.headers.get('Set-Cookie'),/Max-Age=0/);
