@@ -1,16 +1,23 @@
+import gateSpecification from './assets/gate-spec.js.txt';
 import type { Hono } from 'hono';
 import cliPackageBase64 from './assets/nakwol-connect-cli.tgz.b64.js.txt';
 import type { Env } from './types';
 
-export const CONNECT_CLI_VERSION = '0.6.2';
+export const CONNECT_CLI_VERSION = '0.6.3';
 export const CONNECT_CLI_PACKAGE_NAME = 'nakwol-connect';
-const SERVER_PROTECTION_GUIDANCE = `## Server protection is separate from browser authentication
+const SERVER_PROTECTION_GUIDANCE = `Full normative gate specification: /connect/gate-spec.md (also GATE_SPEC.md in the npm package). Role-based access requires Discord verification within 24 hours.
+
+## Server protection is separate from browser authentication
 
 ## Account recovery for access failures
 
 Offer an explicit "계정 확인·접속 문제 해결" link to AUTH /account?client_id=YOUR_CLIENT_ID&recovery=1 alongside login retry. Do not automatically redirect errors. AUTH resolves the return destination exclusively from registered redirect URIs; never pass arbitrary return URLs. Role refresh cannot resolve administrator restrictions or disabled services.
 
-Central /connect/v1.js includes this error link. Existing generated server gates must regenerate with Connect CLI 0.6.2 and redeploy; custom error pages must add the link. The AUTH-hosted /connect/cli/v0.6.2/package.tgz provides this version independently of npm registry publication.
+Central /connect/v1.js includes this error link. Existing generated server gates must regenerate with Connect CLI 0.6.3 and redeploy; custom error pages must add the link. The AUTH-hosted /connect/cli/v0.6.3/package.tgz provides this version independently of npm registry publication.
+
+For Vercel, Netlify or custom servers, import createGate from nakwol-connect/server and supply a protected Request/Response content handler; do not reimplement authentication logic. Automatic generation currently supports only Cloudflare Workers/Pages static builds. GitHub Pages cannot execute this gate; move protected content to server-capable hosting and close old public URLs. See docs/CONNECT_SERVER_PROTECTION.md in the official repository for the gate contract. Run protect verify --provider custom --url https://YOUR-SITE/ --paths /,/data.json,/images/private.png to inspect explicitly listed paths without local installer metadata. This checks anonymous blocking only, not full implementation correctness, and does not replace doctor for official installations.
+
+Connect 0.6.3 preserves the original path, query and fragment across login, including root query URLs. Generated gates share only in-flight authorization checks and revalidate ETag assets after AUTH checks; completed authorization results are not cached. Run npx --yes nakwol-connect@latest protect update once for existing official installations. Installation registers a build hook to regenerate from the compatible 0.6.x common runtime on subsequent npm builds. Redeploy and verify after building. Custom hosts should update the nakwol-connect package in their build pipeline. No running deployment changes without a rebuild/redeploy.
 
 member means the centrally configured Season 3 role (1553600098661957643). Developers choose member, not a Discord role ID. Active developers manage owned apps with member/guest; admin policy and additional role requirements are operator-only.
 
@@ -39,6 +46,7 @@ Current authorization is bot-free OAuth role snapshots. Existing SSO may reuse s
 function decodeBase64(value: string): Uint8Array { const binary=atob(value.trim()); const bytes=new Uint8Array(binary.length); for(let i=0;i<binary.length;i++) bytes[i]=binary.charCodeAt(i); return bytes; }
 function packageResponse(cacheControl: string): Response { return new Response(decodeBase64(cliPackageBase64), { headers:{'Content-Type':'application/gzip','Content-Disposition':`attachment; filename="nakwol-connect-${CONNECT_CLI_VERSION}.tgz"`,'Cache-Control':cacheControl,'Access-Control-Allow-Origin':'*','Cross-Origin-Resource-Policy':'cross-origin','X-Content-Type-Options':'nosniff'} }); }
 export function registerConnectCliDistributionRoutes(app: Hono<{ Bindings: Env }>): void {
+  app.get('/connect/gate-spec.md', (c) => c.text(gateSpecification, 200, { 'Cache-Control':'public, max-age=300', 'Access-Control-Allow-Origin':'*' }));
   app.get('/connect/cli/package.tgz', () => packageResponse('public, max-age=300'));
   app.get(`/connect/cli/v${CONNECT_CLI_VERSION}/package.tgz`, () => packageResponse('public, max-age=31536000, immutable'));
   app.get('/connect/cli/manifest.json', (c) => {

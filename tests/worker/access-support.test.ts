@@ -5,7 +5,7 @@ import * as miniflare from 'miniflare';
 import { Hono } from 'hono';
 import auth from '../../src/index';
 import { registerAccessSupportRoutes } from '../../src/access-support';
-import { diagnoseApplicationAccess } from '../../src/policy';
+import { diagnoseApplicationAccess, MEMBERSHIP_MAX_AGE_MS } from '../../src/policy';
 import { createSession, findSessionUser, inspectAccessToken, upsertMembership } from '../../src/store';
 import { sha256Base64Url } from '../../src/crypto';
 import type { Env } from '../../src/types';
@@ -94,6 +94,15 @@ test('operator support actions use real D1 and preserve service and identity bou
     assert.equal((await request('revoke')).status, 200);
     assert.equal((await status()).reason, 'SEASON_ROLE_MISSING');
     assert.equal(await inspectAccessToken(env, 'fresh', 'site'), null);
+  });
+  await t.test('role-based access expires after 24 hours and recovers after Discord refresh', async () => {
+    await DB.prepare(`DELETE FROM user_reauthentication WHERE user_id='target'`).run();
+    await upsertMembership(env, 'target', true, 'member', [env.NAKWOL_MEMBER_ROLE_ID]);
+    assert.equal((await status()).allowed, true);
+    await DB.prepare(`UPDATE memberships SET checked_at=? WHERE user_id='target'`).bind(Date.now() - MEMBERSHIP_MAX_AGE_MS).run();
+    assert.equal((await status()).reason, 'MEMBERSHIP_REFRESH_REQUIRED');
+    await upsertMembership(env, 'target', true, 'member', [env.NAKWOL_MEMBER_ROLE_ID]);
+    assert.equal((await status()).allowed, true);
   });
   await t.test('operator can inspect target records and action audit; others cannot', async () => {
     const url = 'https://auth.test/admin/api/access/site?discord_id=' + discordId;

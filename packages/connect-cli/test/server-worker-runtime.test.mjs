@@ -20,11 +20,13 @@ for (const provider of ['cloudflare-workers','cloudflare-pages']) test(`${provid
   const installed=JSON.parse(execFileSync(process.execPath,[cli,'protect','install','--root',root,'--provider',provider,'--assets','dist','--url','https://site.test/','--json'],{encoding:'utf8'}));
   assert.equal(installed.protectionStatus,'configured');
   const wrangler=JSON.parse(await readFile(join(root,'wrangler.nakwol.json'),'utf8'));
-  let revoked=false;
+  let revoked=false, checks=0;
   const bundle=await build({entryPoints:[join(root,wrangler.main || 'dist/_worker.js')],bundle:true,format:'esm',write:false});
   const mfOptions={compatibilityDate:wrangler.compatibility_date,modules:true,script:bundle.outputFiles[0].text,bindings:{NAKWOL_SESSION_SECRET:'test-only-secret-not-production-123456789'},assets:{...(wrangler.assets || { binding:'ASSETS', run_worker_first:true }),directory:join(root,'dist'),routerConfig:{has_user_worker:true}},outboundService:async request=>{
     const url=new URL(request.url);
     if(url.pathname==='/logout'){revoked=true;return new Response(null,{status:204});}
+    checks++;
+    await new Promise(resolve=>setTimeout(resolve,50));
     if(revoked)return new Response(null,{status:401});
     if(request.headers.get('Authorization')!=='Bearer fixture-member-token')return new Response(null,{status:403});
     return Response.json({ok:true,data:{status:'active',membership:{is_member:true}},expires_at:Date.now()+60000});
@@ -43,11 +45,21 @@ for (const provider of ['cloudflare-workers','cloudflare-pages']) test(`${provid
   const cookie=session.headers.get('Set-Cookie').split(';')[0];
   const granted=await mf.dispatchFetch('https://site.test/private.json',{headers:{Cookie:cookie}});
   assert.equal(granted.status,200);assert.equal(await granted.text(),'PRIVATE-CONTENT');
+  assert.match(granted.headers.get('Cache-Control'), /private, no-cache/);
+  const etag=granted.headers.get('ETag');
+  assert.ok(etag);
+  const before=checks;
+  const batch=await Promise.all(Array.from({length:8},()=>mf.dispatchFetch('https://site.test/private.json',{headers:{Cookie:cookie,'If-None-Match':etag}})));
+  for(const item of batch){assert.equal(item.status,304);assert.equal(await item.text(),'');}
+  assert.ok(checks-before<8, `expected fewer than 8 AUTH calls, got ${checks-before}`);
+  const after=checks;
+  assert.equal((await mf.dispatchFetch('https://site.test/private.json',{headers:{Cookie:cookie,'If-None-Match':etag}})).status,304);
+  assert.equal(checks,after+1,'completed checks must not be reused');
   const range=await mf.dispatchFetch('https://site.test/video.mp4',{headers:{Cookie:cookie,Range:'bytes=0-6'}});
   // Static Assets may return the full entity when Range is unsupported locally.
   assert.ok([200,206].includes(range.status));
   assert.equal(await range.text(),range.status===206?'PRIVATE':'PRIVATE-CONTENT');
   const logout=await mf.dispatchFetch('https://site.test/__nakwol/logout',{method:'POST',headers:{Cookie:cookie,Origin:'https://site.test'}});
   assert.equal(logout.status,204);assert.equal(revoked,true);
-  assert.equal((await mf.dispatchFetch('https://site.test/private.json',{headers:{Cookie:cookie}})).status,401);
+  assert.equal((await mf.dispatchFetch('https://site.test/private.json',{headers:{Cookie:cookie,'If-None-Match':etag}})).status,401);
 });

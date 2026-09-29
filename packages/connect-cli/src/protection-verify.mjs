@@ -12,13 +12,21 @@ function protectedPaths(files) {
 }
 export async function verifyProtection(options = {}) {
   const root = options.root || process.cwd();
-  const config = await readProjectConfig(root);
-  const installed = await inspectProtection(root, config);
-  if (!installed.ok) return { ok: false, protectionStatus: 'unverified', checks: [{ name: 'server_gate', ok: false, detail: installed.detail }] };
-  const primary = siteUrl(options.url || config.protection.siteUrl);
-  if (primary !== config.protection.siteUrl) throw new Error('--url이 설치 시 지정한 배포 주소와 다릅니다. protect install로 설정을 갱신하세요.');
+  const custom = options.provider === 'custom';
+  let primary, inventory;
+  if (custom) {
+    if (!options.url || !options.paths) throw new Error('custom 검증에는 --url과 보호 대상 --paths가 필요합니다.');
+    primary = siteUrl(options.url);
+    inventory = { paths: [] };
+  } else {
+    const config = await readProjectConfig(root);
+    const installed = await inspectProtection(root, config);
+    if (!installed.ok) return { ok: false, protectionStatus: 'unverified', checks: [{ name: 'server_gate', ok: false, detail: installed.detail }] };
+    primary = siteUrl(options.url || config.protection.siteUrl);
+    if (primary !== config.protection.siteUrl) throw new Error('--url이 설치 시 지정한 배포 주소와 다릅니다. protect install로 설정을 갱신하세요.');
+    inventory = await assetInventory(root, config.protection.assetsDirectory, generatedAssetPaths(config.protection));
+  }
   const origins = [...new Set([primary, ...String(options.alternateOrigins || '').split(',').filter(Boolean).map(siteUrl)])];
-  const inventory = await assetInventory(root, config.protection.assetsDirectory, generatedAssetPaths(config.protection));
   const paths = protectedPaths(inventory.paths);
   if (options.paths) {
     for (const path of String(options.paths).split(',')) {
@@ -54,6 +62,6 @@ export async function verifyProtection(options = {}) {
   }
   await Promise.all(Array.from({ length: 6 }, run));
   const ok = checks.every(check => check.ok);
-  return { ok, protectionStatus: ok ? 'anonymous-blocking-verified' : 'verification-failed', checkedAt: new Date().toISOString(), origins, assetCount: inventory.paths.length, requestCount: checks.length, checks,
-    limitations: ['검사한 배포 주소와 현재 로컬 빌드의 경로에 대한 비로그인 차단 결과입니다.', '정상 시즌3 계정 로그인, 권한 없는 계정 거부, 로그아웃은 실제 브라우저로 별도 확인하세요.', '열거하지 않은 이전 배포·원본 스토리지·다른 도메인은 검증하지 않습니다. 자동으로 찾아내거나 삭제하지 않습니다.'] };
+  return { ok, inspectionScope: custom ? 'explicit-paths' : 'installed-assets', protectionStatus: ok ? 'anonymous-blocking-verified' : 'verification-failed', checkedAt: new Date().toISOString(), origins, assetCount: inventory.paths.length, requestCount: checks.length, checks,
+    limitations: [custom ? '명시한 경로의 비로그인 차단만 검사했습니다. 설치 구성·전체 파일·게이트 내부 구현은 검증하지 않습니다.' : '검사한 배포 주소와 현재 로컬 빌드의 경로에 대한 비로그인 차단 결과입니다.', '정상 시즌3 계정 로그인, 권한 없는 계정 거부, 로그아웃은 실제 브라우저로 별도 확인하세요.', '열거하지 않은 이전 배포·원본 스토리지·다른 도메인은 검증하지 않습니다. 자동으로 찾아내거나 삭제하지 않습니다.'] };
 }
