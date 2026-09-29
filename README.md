@@ -1,31 +1,4 @@
-### 서버 보호 설치와 검증 (Connect 0.6)
-
-**member는 중앙의 시즌3 역할 보유자를 뜻합니다. 개발자는 역할 ID를 입력하지 않습니다.**
-개발자 권한을 받은 앱 소유자는 member/guest를 선택할 수 있으며 admin 정책과 추가 역할은 AUTH 운영자가 설정합니다.
-
-**Embed만으로 HTML·파일이 비공개가 되지는 않습니다.** 직접 주소 접근 차단은 서버 게이트 설치와 배포가 필요합니다.
-현재 자동 지원은 Cloudflare Workers Static Assets의 정적 빌드입니다. SSR/API/다른 호스팅은 자동 보호 완료로 처리하지 않습니다.
-
-```bash
-npx --yes nakwol-connect init --auth required --access-policy member --url https://YOUR-SITE/
-# 먼저 사이트를 빌드해 dist/index.html을 준비하세요.
-npx --yes nakwol-connect protect install --provider cloudflare-workers --assets dist --url https://YOUR-SITE/
-# 설치 후 다시 빌드하세요. 아래 Secret에는 무작위 32자 이상 키를 입력하세요.
-npx wrangler secret put NAKWOL_SESSION_SECRET --config wrangler.nakwol.json
-npx wrangler deploy --config wrangler.nakwol.json
-npx --yes nakwol-connect protect verify --url https://YOUR-SITE/ --json
-npx --yes nakwol-connect doctor --url https://YOUR-SITE/ --json
-```
-
-init의 연결 성공은 보호 완료가 아닙니다. required 사이트의 doctor는 서버 게이트가 없으면 실패합니다.
-configured는 설치만 완료, anonymous-blocking-verified는 검사한 주소·경로의 비로그인 차단 검증 통과입니다.
-GET·HEAD·Range·잘못된 쿠키를 검사하며 200·302·404·503은 성공으로 인정하지 않습니다.
-이전 배포 주소는 --alternate-origins로 추가하세요. 실제 시즌3/비멤버 로그인과 로그아웃은 브라우저로 별도 확인합니다.
-운영 로그인에는 봇이 필요 없으며, OAuth 때 저장한 역할을 쓰므로 Discord 역할 제거가 즉시 반영되지는 않습니다.
-
-상세 절차: [서버 보호 안내](docs/CONNECT_SERVER_PROTECTION.md)
-
- NAKWOL Platform Core
+# NAKWOL Platform Core
 
 낙월(落月) 서비스들이 **로그인과 공통 게임 데이터를 같은 방식으로 재사용**하도록 만든 중앙 플랫폼입니다.
 
@@ -34,6 +7,21 @@ GET·HEAD·Range·잘못된 쿠키를 검사하며 200·302·404·503은 성공�
 - **NAKWOL AUTH** — Discord 기반 중앙 로그인/SSO, 앱별 access token, `/me`, Account Center
 - **NAKWOL Connect** — 새 프로젝트에 AUTH/DATA를 설치·등록·검증하는 공식 CLI + Universal Embed
 - **NAKWOL DATA** — 장수·전법·장비·덱 등 낙월 서비스가 공유하는 사용자 게임 데이터
+
+## 설치·업데이트 안내 (Connect 0.7.1)
+
+**LLM에게 맡기려면 [복사용 설치·업데이트 지시문](docs/LLM_INSTALLATION.md)을 사용하세요.** 신규 설치, 기존 연동 보존, 호스팅별 서버 보호, 운영 검증까지 포함합니다.
+
+| 필요한 작업 | 안내 |
+|---|---|
+| LLM으로 설치 또는 업데이트 | [복사용 지시문](docs/LLM_INSTALLATION.md) |
+| Workers / Pages 정적 빌드 보호 | [설치·배포·차단 검사](docs/CONNECT_SERVER_PROTECTION.md) |
+| Vercel / Netlify / 자체 서버 | [공식 공통 게이트 어댑터](docs/CONNECT_SERVER_PROTECTION.md#자체-서버-공식-api-호출) |
+| 업데이트 PR·버전 확인·관리자 보고 | [관리형 업데이트](docs/MANAGED_GATE_UPDATES.md) |
+| 명시적 자동 복구 설정 | [Cloudflare 롤백](docs/DEPLOYMENT_ROLLBACK.md) |
+| 보안·캐시·세션 계약 | [서버 게이트 명세](packages/connect-cli/GATE_SPEC.md) |
+
+**Embed는 로그인 UI이며 HTML·파일 직접 접근을 차단하지 않습니다.** 보호 사이트는 공식 서버 게이트를 설치하고 사이트를 배포해야 합니다. 자동 설치는 Workers Static Assets / Pages 정적 빌드에 제공하며, 다른 서버는 공통 `createGate`를 연결합니다. GitHub Pages 자체에서는 서버 게이트를 실행할 수 없습니다.
 
 ## 기본 정책: 낙월 맹원 전용
 
@@ -46,7 +34,7 @@ auth = required
 access_policy = member
 ```
 
-즉, 별도 옵션 없이 Connect를 설치한 서비스는 페이지 진입 즉시 인증을 확인하고 **낙월 맹원으로 확인된 사용자만 페이지를 사용할 수 있습니다.**
+서버 게이트까지 배포한 서비스는 **중앙의 시즌3 member 정책을 통과한 사용자만 보호 콘텐츠를 받을 수 있습니다.** init만 실행한 상태는 보호 설치 완료가 아닙니다.
 
 - 중앙 SSO 세션이 있으면 로그인 버튼을 다시 누르지 않고 자동 인증합니다.
 - 중앙 세션이 없으면 페이지를 잠근 상태에서 로그인 흐름을 시작합니다.
@@ -60,7 +48,7 @@ access_policy = member
 
 **https://nakwol-auth.sepsd21.workers.dev/connect**
 
-현재 공식 CLI는 **`nakwol-connect@0.6.0`**입니다.
+현재 공식 CLI는 **`nakwol-connect@0.7.1`**입니다.
 
 프로젝트 루트에서:
 
@@ -69,7 +57,7 @@ npx --yes nakwol-connect init
 npx --yes nakwol-connect doctor --json
 ```
 
-이 기본 명령은 **로그인 필수 + 시즌3 정책의 Embed**를 설치합니다. 서버 보호는 위 절차를 이어서 진행합니다.
+이 기본 명령은 **로그인 필수 + 시즌3 정책의 Embed**를 설치합니다. 서버 보호는 [호스팅별 설치·배포 절차](docs/CONNECT_SERVER_PROTECTION.md)를 이어서 진행합니다. required의 init은 보호 배포 전 ok:false/exit 1일 수 있습니다. JSON의 실패 항목을 확인하고 이미 만들어진 앱과 설정을 보존하세요.
 
 DATA도 함께 쓰는 경우 필요한 scope만 선언합니다.
 
@@ -117,39 +105,19 @@ window.NAKWOL_CONNECT.logout()
 window.NAKWOL_CONNECT.data
 ```
 
-Web SDK stable은 **0.3.0**이며 Universal Embed는 같은 브라우저의 중앙 SSO를 자동 사용합니다.
+Web SDK stable은 **0.3.1**이며 Universal Embed는 같은 브라우저의 중앙 SSO를 자동 사용합니다.
 
-## 코딩/LLM 에이전트에게 그대로 줄 지시문
+## 코딩/LLM 에이전트에게 맡기기
 
-아래 블록을 그대로 전달하면 됩니다.
+[최신 복사용 지시문](docs/LLM_INSTALLATION.md)을 전달하세요. 기존 사이트는 새 앱 생성 대신 현재 clientId·정책·Secret을 보존해 업데이트합니다.
 
-```text
-이 프로젝트에 공식 NAKWOL Connect를 붙여줘.
+### 이미 설치한 사이트의 반영 시점
 
-NAKWOL Connect의 npm 패키지는 `nakwol-connect`이고 프로젝트 루트에서
-`npx --yes nakwol-connect ...` 형태로 실행한다. Discord OAuth나 PKCE를 직접 구현하지 말고 반드시 공식 CLI와 Universal Embed를 사용해.
+중앙 Embed 변경은 중앙 스크립트를 사용하는 사이트에 반영되지만, 서버 게이트는 **패키지 업데이트 → 사이트 빌드 → 배포**가 필요합니다. AUTH 배포만으로 소비자 서버 코드는 교체되지 않습니다.
 
-이 서비스는 특별히 공개 서비스라고 명시하지 않는 한 반드시 NAKWOL 기본 보안 정책을 유지해야 한다:
-- auth mode = required
-- access policy = member
-- 페이지 진입 즉시 인증 가드를 적용
-- 중앙 NAKWOL SSO 세션이 있으면 사용자 조작 없이 자동 인증
-- 세션이 없으면 페이지를 공개하지 말고 로그인 흐름으로 연결
-- 로그인했지만 낙월 맹원이 아니면 페이지를 공개하지 말고 access denied 처리
+0.7.1 공통 게이트는 유효한 5분 authorization lease 동안 자산마다 중앙 AUTH를 호출하지 않고 암호화 쿠키를 로컬 검증합니다. 중앙 권한 회수에는 최대 5분의 추가 지연이 있으며, Discord 역할 정보의 최대 24시간 지연과 별개입니다. lease 만료 후 AUTH 장애는 차단합니다.
 
-따라서 일반적인 설치는 `npx --yes nakwol-connect init`을 사용한다.
-`--auth optional` 또는 `--access-policy guest`는 내가 이 서비스가 공개 서비스라고 명시적으로 요청한 경우에만 사용한다. 임의로 보안을 완화하지 마.
-
-현재 서비스의 실제 production URL을 callback으로 정확히 등록해. 기존 NAKWOL Connect 연동이 있다면 별도 OAuth 구현을 추가하지 말고 공식 Connect 방식으로 정리해.
-
-브라우저 코드나 저장소에는 Discord Client Secret, Cloudflare secret, Connect CLI token을 넣지 마.
-DATA가 필요하면 필요한 scope만 최소로 선언하고, 현재 계약은 `npx --yes nakwol-connect data describe --json`으로 확인해.
-
-작업 후 반드시 다음을 실행해 검증해:
-`npx --yes nakwol-connect doctor --json`
-
-마지막으로 설치된 Embed/설정에서 auth가 required이고 access policy가 member인지 확인해서 결과를 보고해.
-```
+관리형 업데이트는 exact dependency와 lockfile, 패치 업데이트 PR 및 배포 후 검사 흐름을 제공합니다. 자동 병합·배포·롤백을 기본으로 켜지 않습니다. [설정과 한계](docs/MANAGED_GATE_UPDATES.md)를 확인하세요.
 
 ## 개발자 권한
 
@@ -168,7 +136,7 @@ NAKWOL 운영자는 `https://nakwol-auth.sepsd21.workers.dev/admin/developers`�
 ### NAKWOL AUTH
 
 - production runtime: **AUTH 0.2.0**
-- Web SDK stable: **0.3.0**
+- Web SDK stable: **0.3.1**
 - origin: `https://nakwol-auth.sepsd21.workers.dev`
 - Discord OAuth, NAKWOL ID, membership, Authorization Code + PKCE(S256), 앱별 access token, `/me`, 중앙 SSO를 담당합니다.
 
@@ -187,8 +155,8 @@ NAKWOL 운영자는 `https://nakwol-auth.sepsd21.workers.dev/admin/developers`�
 
 ### NAKWOL Connect
 
-- CLI/distribution: **Connect 0.6.0**
-- npm package: **`nakwol-connect@0.6.0`**
+- CLI/distribution: **Connect 0.7.1**
+- npm package: **`nakwol-connect@0.7.1`**
 - 기본값: **`required + member`**
 - 앱 등록/재사용, callback 등록, AUTH/DATA 자동 연동, doctor, DATA OpenAPI discovery를 담당합니다.
 
