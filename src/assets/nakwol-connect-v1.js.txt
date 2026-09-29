@@ -67,10 +67,10 @@
     });
     const title = document.createElement('strong');
     Object.assign(title.style, { display: 'block', fontSize: '18px', lineHeight: '1.4' });
-    title.textContent = 'NAKWOL 인증 확인 중…';
+    title.textContent = '접속 확인 중…';
     const copy = document.createElement('p');
     Object.assign(copy.style, { margin: '9px 0 0', color: '#aab6c8', fontSize: '13px', lineHeight: '1.6' });
-    copy.textContent = '이 서비스는 낙월 인증이 필요합니다.';
+    copy.hidden = true;
     const button = document.createElement('button');
     button.type = 'button';
     button.hidden = true;
@@ -108,6 +108,7 @@
     if (!guard) return;
     guard.recovery.hidden = state !== 'error';
     guard.recovery.style.display = state === 'error' ? 'block' : 'none';
+    guard.copy.hidden = false;
     if (state === 'login') {
       guard.title.textContent = '낙월 로그인이 필요합니다';
       guard.copy.textContent = '로그인 화면으로 이동합니다.';
@@ -344,6 +345,7 @@
       }
       const widget = sdk.mountNakwolIdentityMenu(client, {
         globalLogout,
+        loadingText: '접속 확인 중…',
         showAccountLinks: script.dataset.accountLinks === 'true',
         showRole: script.dataset.showRole === 'true',
         variant: 'compact',

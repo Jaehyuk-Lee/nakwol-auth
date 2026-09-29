@@ -1,4 +1,4 @@
-### 서버 보호 설치와 검증 (Connect 0.6)
+### 서버 보호 설치와 검증 (Connect 0.7)
 
 **member는 중앙의 시즌3 역할 보유자를 뜻합니다. 개발자는 역할 ID를 입력하지 않습니다.**
 개발자 권한을 받은 앱 소유자는 member/guest를 선택할 수 있으며 admin 정책과 추가 역할은 AUTH 운영자가 설정합니다.
@@ -225,3 +225,15 @@ https://nakwol-data.sepsd21.workers.dev/openapi.json
 ```
 
 Requirements: Node.js 20+, network access to NAKWOL AUTH and DATA. License: MIT.
+
+## Server gate 0.7.0 authorization lease
+
+The common `nakwol-connect/server` runtime issues an AES-GCM authenticated cookie bound to client ID, site origin, AUTH origin and policy. It contains the user ID and a fixed five-minute authorization lease. Valid leases authorize HTML, JS/CSS, JSON, images, fonts and downloads locally; these requests make **zero `/me` calls** and no remote storage lookup. Initial session exchange, expired leases and legacy-cookie upgrades call `/me`. Sessions expire at the earlier of token expiry and one hour after creation.
+
+Renewal uses bounded isolate-local completed-result caching plus single-flight; multiple isolates may each renew. Requests never extend the original lease. AUTH outages do not invalidate an already-issued lease, but expired-lease failures return 503 without stale authorization. Central revocation can take **up to five additional minutes**. OAuth role snapshots can already lag by 24 hours, so Discord role removal may take 24 hours plus five minutes. Logout clears the browser cookie, denies the token in the current isolate and attempts central revocation; replay in another isolate is bounded by the existing lease.
+
+ETag 200/304 responses remain `private,no-cache,max-age=0,must-revalidate`; others remain `private,no-store,max-age=0`. Conditional requests pass authorization first. No shared cache or positive browser cache TTL is introduced.
+
+Existing `~0.6.3` build hooks **do not adopt 0.7.0 automatically**. Once 0.7.0 is published, explicitly run `npx --yes nakwol-connect@0.7.0 protect update`, then build, deploy and run `protect verify` and `doctor`. New hooks follow `~0.7.0`. An AUTH-only deployment cannot replace installed site gates. Source version changes are not publication or deployment evidence.
+
+See [the complete gate specification](GATE_SPEC.md) for security, cache, recovery and adapter contracts.
