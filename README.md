@@ -105,7 +105,7 @@ window.NAKWOL_CONNECT.logout()
 window.NAKWOL_CONNECT.data
 ```
 
-Web SDK stable은 **0.3.1**이며 Universal Embed는 같은 브라우저의 중앙 SSO를 자동 사용합니다.
+Web SDK stable은 **0.3.2**이며 Universal Embed는 같은 브라우저의 중앙 SSO를 자동 사용합니다.
 
 ## 코딩/LLM 에이전트에게 맡기기
 
@@ -136,7 +136,7 @@ NAKWOL 운영자는 `https://nakwol-auth.sepsd21.workers.dev/admin/developers`�
 ### NAKWOL AUTH
 
 - production runtime: **AUTH 0.2.0**
-- Web SDK stable: **0.3.1**
+- Web SDK stable: **0.3.2**
 - origin: `https://nakwol-auth.sepsd21.workers.dev`
 - Discord OAuth, NAKWOL ID, membership, Authorization Code + PKCE(S256), 앱별 access token, `/me`, 중앙 SSO를 담당합니다.
 

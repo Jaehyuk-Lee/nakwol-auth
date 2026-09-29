@@ -100,7 +100,7 @@ window.NAKWOL_CONNECT.data
 
 `member`는 시즌3 역할 보유자만 허용합니다. `/admin/roles`에서 사이트별 추가 역할을 관리합니다. Embed의 화면 잠금만으로는 HTML·데이터 직접 접근을 막지 못하므로 보호 사이트는 서버에서 매 요청을 검사해야 합니다. [서버 접근 제어 계약과 운영 설정](docs/SERVER_GATED_AUTH.md)을 참고하세요.
 
-Web SDK stable은 `0.3.1`입니다. Universal Embed는 automatic SSO를 기본으로 사용합니다.
+Web SDK stable은 `0.3.2`입니다. Universal Embed는 automatic SSO를 기본으로 사용합니다.
 
 ### 검증된 세션 복원 (Embed v1.4)
 
