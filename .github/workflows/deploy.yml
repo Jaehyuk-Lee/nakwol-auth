@@ -116,7 +116,7 @@ jobs:
           exit 1
       - name: Deploy existing Worker without replacing dashboard variables
         run: npx wrangler deploy --keep-vars
-      - name: Verify production AUTH and Connect v0.6 distribution
+      - name: Verify production AUTH and Connect v0.7 distribution
         shell: bash
         run: |
           set -euo pipefail
@@ -142,7 +142,7 @@ jobs:
                  grep -q '"default_auth":"required"' /tmp/connect-manifest && \
                  grep -q '"default_access_policy":"member"' /tmp/connect-manifest && \
                  grep -q '"name":"nakwol-connect"' /tmp/cli-manifest && \
-                 grep -q '"version":"0.6.3"' /tmp/cli-manifest && \
+                 grep -q '"version":"0.7.0"' /tmp/cli-manifest && \
                  grep -q '"default_auth":"required"' /tmp/cli-manifest && \
                  grep -q '"default_access_policy":"member"' /tmp/cli-manifest && \
                  grep -q 'init --auth optional' /tmp/cli-manifest && \
@@ -155,13 +155,13 @@ jobs:
                  grep -q 'OpenAPI' /tmp/llms && \
                  grep -q 'CLI 연결 승인' /tmp/device && \
                  test -s /tmp/cli-package; then
-                echo 'NAKWOL_CONNECT_V06_DEPLOY_OK'
+                echo 'NAKWOL_CONNECT_V07_DEPLOY_OK'
                 exit 0
               fi
             fi
             sleep 5
           done
-          echo '::error::NAKWOL Connect v0.6 deployment verification failed.'
+          echo '::error::NAKWOL Connect v0.7 deployment verification failed.'
           echo '--- Connect manifest ---'
           cat /tmp/connect-manifest || true
           echo

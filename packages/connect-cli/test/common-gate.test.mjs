@@ -21,14 +21,15 @@ for (const provider of ['cloudflare-workers','cloudflare-pages']) test(`${provid
   const pkg=JSON.parse(await readFile(join(root,'package.json'),'utf8'));
   assert.equal(pkg.scripts.build,'vite build');
   assert.equal(pkg.scripts.postbuild,'npm run nakwol:gate && node existing-task.mjs');
-  assert.equal(pkg.scripts['nakwol:gate'],'npx --yes nakwol-connect@~0.6.3 protect update');
+  assert.equal(pkg.scripts['nakwol:gate'],'npx --yes nakwol-connect@~0.7.0 protect update');
+  await writeFile(join(root,'package.json'),JSON.stringify({...pkg,scripts:{...pkg.scripts,'nakwol:gate':'npx --yes nakwol-connect@~0.6.3 protect update'}}));
   if(provider==='cloudflare-pages') {
     await rm(join(root,'dist/_worker.js'));
     await rm(join(root,'dist/_routes.json'));
   }
   const cli=fileURLToPath(new URL('../bin/nakwol-connect.mjs',import.meta.url));
   const result=JSON.parse(execFileSync(process.execPath,[cli,'protect','update','--root',root,'--json'],{encoding:'utf8'}));
-  assert.equal(result.protection.runtimeVersion,'0.6.3');
+  assert.equal(result.protection.runtimeVersion,'0.7.0');
   assert.equal(result.protection.provider,provider);
   assert.equal(result.protection.siteUrl,'https://site.test/');
   assert.equal((await inspectProtection(root,await readProjectConfig(root))).ok,true);
@@ -43,16 +44,17 @@ test('public common gate API protects an arbitrary Request/Response host', async
   const gate=createGate({clientId:'site',accessPolicy:'member',authOrigin:'https://auth.test',siteUrl:'https://site.test/'});
   let served=0,revoked=false;
   const host={sessionSecret:'test-secret-with-at-least-32-characters',serveAsset:async()=>{served++;return new Response('private');}};
-  const original=globalThis.fetch;
-  t.after(()=>{globalThis.fetch=original;});
-  globalThis.fetch=async()=>revoked?new Response(null,{status:401}):Response.json({ok:true,data:{status:'active',membership:{is_member:true}},expires_at:Date.now()+60000});
+  const original=globalThis.fetch, originalNow=Date.now;
+  let now=originalNow(); Date.now=()=>now;
+  t.after(()=>{globalThis.fetch=original;Date.now=originalNow;});
+  globalThis.fetch=async()=>revoked?new Response(null,{status:401}):Response.json({ok:true,data:{id:'fixture-user',status:'active',membership:{is_member:true}},application_access:{client_id:'site',allowed:true,source:'policy'},expires_at:Date.now()+3600000});
   assert.equal((await gate(new Request('https://site.test/data.json'),host)).status,401);
   assert.equal(served,0);
   const session=await gate(new Request('https://site.test/__nakwol/session',{method:'POST',headers:{Origin:'https://site.test','Content-Type':'application/json'},body:JSON.stringify({access_token:'fixture'})}),host);
   assert.equal(session.status,204);
   const headers={Cookie:session.headers.get('Set-Cookie').split(';')[0]};
   assert.equal(await (await gate(new Request('https://site.test/data.json',{headers}),host)).text(),'private');
-  revoked=true;
+  revoked=true; now+=300001;
   assert.equal((await gate(new Request('https://site.test/data.json',{headers}),host)).status,401);
   assert.equal(served,1);
 });

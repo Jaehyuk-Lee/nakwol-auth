@@ -40,7 +40,7 @@ jobs:
         run: npm run typecheck
       - name: Bundle check
         run: npx wrangler deploy --dry-run --outdir .dry-run
-      - name: Verify NAKWOL Connect v0.6 assets
+      - name: Verify NAKWOL Connect v0.7 assets
         shell: bash
         run: |
           set -euo pipefail
@@ -53,14 +53,14 @@ jobs:
           grep -q "X-NAKWOL-CLIENT-ID" src/assets/nakwol-connect-v1.js.txt
           grep -q "openapi: dataOpenApi" src/assets/nakwol-connect-v1.js.txt
           grep -q "script.dataset.auth || 'required'" src/assets/nakwol-connect-v1.js.txt
-          grep -q "CONNECT_CLI_VERSION = '0.6.3'" src/connect-cli-distribution.ts
+          grep -q "CONNECT_CLI_VERSION = '0.7.0'" src/connect-cli-distribution.ts
           grep -q "default_auth:'required'" src/connect-cli-distribution.ts
           grep -q "init --auth optional" src/connect-cli-distribution.ts
           grep -q "init --scopes roster:read,decks:read" src/connect-cli-distribution.ts
           grep -q "data describe --json" src/connect-cli-distribution.ts
           grep -q "data_openapi" src/connect-cli-distribution.ts
-          grep -q "Verify production AUTH and Connect v0.6 distribution" .github/workflows/deploy.yml
-          grep -q '"version":"0.6.3"' .github/workflows/deploy.yml
+          grep -q "Verify production AUTH and Connect v0.7 distribution" .github/workflows/deploy.yml
+          grep -q '"version":"0.7.0"' .github/workflows/deploy.yml
           grep -q '"default_auth":"required"' .github/workflows/deploy.yml
           test -s src/assets/nakwol-connect-cli.tgz.b64.js.txt
-          echo 'NAKWOL_CONNECT_V06_STATIC_CHECK_OK'
+          echo 'NAKWOL_CONNECT_V07_STATIC_CHECK_OK'
