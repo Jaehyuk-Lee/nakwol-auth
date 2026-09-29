@@ -160,3 +160,10 @@ export function handle(request, sessionSecret, serveProtectedContent) {
 서버 세션은 앱 토큰 만료와 생성 후 1시간 중 빠른 시점에 만료됩니다. lease는 중앙 검증 시작부터 고정 5분이며 요청이나 메모리 캐시 조회로 연장되지 않습니다. 잘못된 쿠키, 다른 앱/사이트/정책 쿠키, 만료 세션은 차단합니다. 이전 버전 쿠키는 중앙 검증 후 v2로 교환합니다.
 
 로그아웃은 브라우저 쿠키를 삭제하고 현재 isolate에 토큰 거부를 기록하며 중앙 폐기를 시도합니다. 다른 isolate에서 재생된 쿠키는 최대 5분 후 차단됩니다. AUTH 장애 때 만료된 lease를 재사용하는 fail-open은 없습니다. 이미 다운로드한 자료와 브라우저 뒤로가기 화면을 원격으로 회수하는 기능은 아닙니다.
+
+### 관리형 업데이트 선택
+
+0.7.1 출시 후보부터 `protect automate`로 exact dependency + lockfile + GitHub
+업데이트 PR 흐름을 선택할 수 있습니다. 이 모드에서는 위의 범위 기반 빌드 훅
+대신 설치된 로컬 CLI를 사용합니다. 설정 후 별도의 npm 잠금 파일 갱신/커밋과
+사이트 배포 연결이 필요합니다. [운영 절차](MANAGED_GATE_UPDATES.md)를 따르세요.

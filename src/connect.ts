@@ -95,6 +95,7 @@ function adminPage(): string {
       </section>
       <section class="content-card"><h3>개발자 연동 방법</h3><div id="guide-area"></div></section>
       <section class="content-card"><div class="section-head"><h3>연동 진단</h3><button id="run-diagnostics" class="ghost" type="button">연동 상태 확인</button></div><div id="diagnostics-area"></div></section>
+      <section class="content-card"><div class="section-head"><h3>서버 보호 배포 현황</h3><button id="refresh-gate-reports" class="ghost" type="button">새로고침</button></div><p class="muted">서비스 CI가 전송한 검사 결과입니다. 중앙 서버의 배포 증명이나 정상 사용자 로그인 검증을 대신하지 않습니다. 최근 100건을 표시합니다.</p><div id="gate-reports" role="status" aria-live="polite"></div></section>
       <section class="content-card"><h3>접근 문제 해결 · 수동 권한</h3>
         <p class="muted">이 서비스에만 수동 접근을 허가합니다. Discord 역할과 AUTH 운영 권한은 변경하지 않습니다. 재인증 요구는 해당 사용자의 모든 서비스 AUTH 로그인을 무효화합니다.</p>
         <div class="form-grid"><div class="field"><label for="support-discord">Discord 사용자 ID</label><input id="support-discord" inputmode="numeric" placeholder="숫자로 된 Discord ID" maxlength="22"></div>
@@ -136,7 +137,7 @@ async function adminIdentity(c: Context<{ Bindings: Env }>): Promise<AdminIdenti
   };
 }
 
-async function requireManager(c: Context<{ Bindings: Env }>): Promise<AdminIdentity | Response> {
+export async function requireManager(c: Context<{ Bindings: Env }>): Promise<AdminIdentity | Response> {
   const identity = await adminIdentity(c);
   if (!identity) return c.json({ ok: false, error: { code: 'UNAUTHORIZED', message: 'NAKWOL Connect 로그인이 필요합니다.' } }, 401);
   if (!identity.canManage) return c.json({ ok: false, error: { code: 'FORBIDDEN', message: 'NAKWOL Connect 운영 권한이 없습니다.' } }, 403);

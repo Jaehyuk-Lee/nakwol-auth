@@ -237,3 +237,14 @@ ETag 200/304 responses remain `private,no-cache,max-age=0,must-revalidate`; othe
 Existing `~0.6.3` build hooks **do not adopt 0.7.0 automatically**. Once 0.7.0 is published, explicitly run `npx --yes nakwol-connect@0.7.0 protect update`, then build, deploy and run `protect verify` and `doctor`. New hooks follow `~0.7.0`. An AUTH-only deployment cannot replace installed site gates. Source version changes are not publication or deployment evidence.
 
 See [the complete gate specification](GATE_SPEC.md) for security, cache, recovery and adapter contracts.
+
+### Managed updates (0.7.1 release candidate)
+
+`protect automate [--environment production]` opts an existing official gate into
+an exact local npm dependency and GitHub patch-update PR/build/deployment-check
+workflows. Commit a reviewed npm lockfile before running CI. Existing CI is never
+overwritten. `protect status [--offline]` distinguishes local configuration from
+observed deployment version; `protect verify --expect-runtime installed` requires
+both anonymous blocking and the expected gate version. No auto-merge, deployment
+credentials or automated rollback are installed. See
+[managed update operations](../../docs/MANAGED_GATE_UPDATES.md) for setup and limits.

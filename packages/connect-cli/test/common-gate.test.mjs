@@ -29,7 +29,7 @@ for (const provider of ['cloudflare-workers','cloudflare-pages']) test(`${provid
   }
   const cli=fileURLToPath(new URL('../bin/nakwol-connect.mjs',import.meta.url));
   const result=JSON.parse(execFileSync(process.execPath,[cli,'protect','update','--root',root,'--json'],{encoding:'utf8'}));
-  assert.equal(result.protection.runtimeVersion,'0.7.0');
+  assert.equal(result.protection.runtimeVersion,'0.7.1');
   assert.equal(result.protection.provider,provider);
   assert.equal(result.protection.siteUrl,'https://site.test/');
   assert.equal((await inspectProtection(root,await readProjectConfig(root))).ok,true);
