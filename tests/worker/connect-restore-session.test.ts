@@ -13,7 +13,7 @@ async function runEmbed(storageSeed: Record<string, string>, dataset: Record<str
   const element = () => {
     const attrs = new Map<string, string>();
     return {
-      style: { display: '' }, dataset: {}, hidden: false, textContent: '', type: '',
+      style: {}, dataset: {}, hidden: false, textContent: '', type: '',
       setAttribute: (k: string, v: string) => attrs.set(k, v),
       hasAttribute: (k: string) => attrs.has(k),
       removeAttribute: (k: string) => attrs.delete(k),
@@ -21,8 +21,6 @@ async function runEmbed(storageSeed: Record<string, string>, dataset: Record<str
       append: () => {}, appendChild: () => {}, remove: () => {}, addEventListener: () => {},
     };
   };
-  const created: ReturnType<typeof element>[] = [];
-  let timeoutCallback: (() => void) | undefined;
   const body = element();
   const documentElement = { ...element(), style: { overflow: '' }, appendChild: (node: unknown) => appended.push(node) };
   const window: any = {
@@ -37,17 +35,17 @@ async function runEmbed(storageSeed: Record<string, string>, dataset: Record<str
     readyState: 'loading',
     currentScript: { src: 'https://auth.example/connect/v1.js', dataset: { clientId: 'guide', ...dataset } },
     body, documentElement,
-    createElement: () => { const node = element(); created.push(node); return node; },
+    createElement: element,
     addEventListener: () => {},
   };
   window.document = document;
   const context = vm.createContext({
     window, document, location: { href: 'https://guide.example/decks/', origin: 'https://guide.example', pathname: '/decks/' },
     CustomEvent: class { type: string; detail: unknown; constructor(type: string, init?: { detail?: unknown }) { this.type = type; this.detail = init?.detail; } },
-    URL, JSON, Date, console, setTimeout: (callback: () => void) => { timeoutCallback = callback; return 1; }, clearTimeout: () => {},
+    URL, JSON, Date, console,
   });
   vm.runInContext(source, context);
-  return { get cardHidden() { return created[1]?.hidden; }, get cardDisplay() { return created[1]?.style.display; }, triggerTimeout: () => timeoutCallback?.(), events, guardShown: appended.length > 0, bodyLocked: body.hasAttribute('inert'), window, storage };
+  return { events, guardShown: appended.length > 0, bodyLocked: body.hasAttribute('inert'), window, storage };
 }
 
 const token = (expiresAt: number) => JSON.stringify({ accessToken: 'app-token', expiresAt });
@@ -110,16 +108,4 @@ test('optional Connect never locks and never restores', async () => {
   }, { auth: 'optional' });
   assert.equal(run.guardShown, false);
   assert.deepEqual(run.events, []);
-});
-
- test('pending Connect guard hides its card while keeping content locked; timeout offers recovery', async () => {
-  const run = await runEmbed({});
-  assert.equal(run.guardShown, true);
-  assert.equal(run.bodyLocked, true);
-  assert.equal(run.cardHidden, true);
-  assert.equal(run.cardDisplay, 'none');
-  run.triggerTimeout();
-  assert.equal(run.cardHidden, false);
-  assert.equal(run.cardDisplay, 'block');
-  assert.equal(run.bodyLocked, true);
 });

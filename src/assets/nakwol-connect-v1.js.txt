@@ -24,7 +24,6 @@
   let activeClient = null;
   let authGuard = null;
   let bodyLock = null;
-  let guardTimer = null;
 
   const lockBody = () => {
     if (!authRequired || bodyLock || !document.body) return;
@@ -57,9 +56,6 @@
     });
 
     const card = document.createElement('div');
-    card.hidden = true;
-    card.style.display = 'none';
-    root.setAttribute('aria-busy', 'true');
     Object.assign(card.style, {
       width: 'min(420px, 100%)',
       padding: '24px',
@@ -71,10 +67,10 @@
     });
     const title = document.createElement('strong');
     Object.assign(title.style, { display: 'block', fontSize: '18px', lineHeight: '1.4' });
-    title.textContent = '';
+    title.textContent = 'NAKWOL 인증 확인 중…';
     const copy = document.createElement('p');
     Object.assign(copy.style, { margin: '9px 0 0', color: '#aab6c8', fontSize: '13px', lineHeight: '1.6' });
-    copy.textContent = '';
+    copy.textContent = '이 서비스는 낙월 인증이 필요합니다.';
     const button = document.createElement('button');
     button.type = 'button';
     button.hidden = true;
@@ -102,8 +98,7 @@
     card.append(title, copy, button, recovery);
     root.appendChild(card);
     document.documentElement.appendChild(root);
-    authGuard = { root, card, title, copy, button, recovery };
-    guardTimer = setTimeout(() => setAuthGuardState('error', { code:'AUTH_CHECK_TIMEOUT' }), 15000);
+    authGuard = { root, title, copy, button, recovery };
     lockBody();
     return authGuard;
   };
@@ -111,11 +106,6 @@
   const setAuthGuardState = (state, error = null) => {
     const guard = ensureAuthGuard();
     if (!guard) return;
-    const visible = state === 'loggedout' || state === 'error';
-    guard.card.hidden = !visible;
-    guard.card.style.display = visible ? 'block' : 'none';
-    guard.root.setAttribute('aria-busy', String(!visible));
-    if (visible) { clearTimeout(guardTimer); guardTimer = null; }
     guard.recovery.hidden = state !== 'error';
     guard.recovery.style.display = state === 'error' ? 'block' : 'none';
     if (state === 'login') {
@@ -137,7 +127,7 @@
       guard.title.textContent = denied ? '접근 권한 없음' : '인증에 실패했습니다';
       guard.copy.textContent = denied
         ? '접근 조건이 확인되지 않았습니다. 역할을 받았다면 계정 페이지에서 다시 확인해 주세요. 관리자 차단이나 서비스 설정 문제는 관리자 확인이 필요합니다.'
-        : code === 'AUTH_CHECK_TIMEOUT' ? '로그인 확인이 지연되고 있습니다. 다시 로그인해 주세요.' : `인증 오류: ${code}`;
+        : `인증 오류: ${code}`;
       guard.button.textContent = denied ? 'Discord로 권한 다시 확인' : '다시 로그인';
       guard.button.hidden = false;
     }
@@ -145,7 +135,6 @@
 
   const releaseAuthGuard = () => {
     if (!authRequired) return;
-    clearTimeout(guardTimer); guardTimer = null;
     authGuard?.root.remove();
     authGuard = null;
     if (bodyLock && document.body) {
