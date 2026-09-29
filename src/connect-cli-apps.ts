@@ -18,7 +18,7 @@ function bearer(c: Context<{ Bindings: Env }>): string | null {
   return header.match(/^Bearer\s+(.+)$/i)?.[1] || null;
 }
 
-async function requirePrincipal(c: Context<{ Bindings: Env }>): Promise<ConnectPrincipal | Response> {
+export async function requirePrincipal(c: Context<{ Bindings: Env }>): Promise<ConnectPrincipal | Response> {
   const raw = bearer(c);
   if (!raw) return c.json({ ok: false, error: { code: 'UNAUTHORIZED', message: 'CLI token이 필요합니다.' } }, 401);
   const principal = await authenticateCliToken(c.env, raw);
@@ -66,7 +66,7 @@ async function readApp(env: Env, clientId: string) {
   };
 }
 
-async function requireOwnedApp(c: Context<{ Bindings: Env }>, principal: ConnectPrincipal, clientId: string) {
+export async function requireOwnedApp(c: Context<{ Bindings: Env }>, principal: ConnectPrincipal, clientId: string) {
   const current = await readApp(c.env, clientId);
   if (!current) return { response: c.json({ ok: false, error: { code: 'APP_NOT_FOUND', message: '앱을 찾을 수 없습니다.' } }, 404) };
   if (!canManageOwnedApplication({ isOperator: principal.isOperator, userId: principal.userId, ownerUserIds: current.owner_user_ids })) {

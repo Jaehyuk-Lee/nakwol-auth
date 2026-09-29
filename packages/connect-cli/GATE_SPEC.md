@@ -113,4 +113,7 @@ installed package matching package.json and the committed npm lockfile. A local
 update must not be reported as a verified deployment. `protect verify` preserves
 legacy behavior unless `--expect-runtime` is specified; then missing or mismatched
 versions fail verification. No secrets or authenticated content appear in version
-responses. Managed update PRs require review; no production auto-merge/rollback.
+responses. Managed update PRs require review; no production auto-merge. Optional Cloudflare
+release-check rollback requires a pinned verified baseline, current deployment
+identity checks and externally serialized deployments. Report-only credentials
+never authorize users; all deployment summaries remain informational.

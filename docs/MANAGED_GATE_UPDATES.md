@@ -77,10 +77,42 @@ npm exec -- nakwol-connect protect verify --expect-runtime installed --json
 PR 실패는 병합하지 않습니다. 운영 검증 실패는 로그와 artifact를 보존하고
 호스팅의 이전 정상 배포로 되돌린 뒤, 그 배포와 일치하는 소스/잠금 파일에서
 다시 검증합니다. 이전 공개 Pages 주소 등 우회 경로는 별도 관리합니다.
-자동 롤백은 호스팅별 권한/배포 ID가 필요하므로 이번 버전에는 제공하지 않습니다.
+자동 롤백은 아래의 명시적 Cloudflare 복구 설정 및 배포 job 연동을 사용합니다.
 
 ## 관리자 화면과의 경계
 
-현재 결과는 CLI와 GitHub Actions에서 확인합니다. 중앙 관리자 페이지의 사이트별
-버전/검증 이력 수집 API, 배포 연결 버튼, 단계적 배포와 자동 롤백은 후속 기능입니다.
+결과는 CLI, GitHub Actions, 보고를 연결한 중앙 관리자 페이지에서 확인합니다.
+호스팅 연결 버튼과 단계적 트래픽 배포는 현재 제공하지 않습니다.
 출시 후보를 운영 완료나 중앙 관리 기능 완성으로 표시하지 않습니다.
+
+## 중앙 배포 현황 보고 (0.7.1)
+
+운영 AUTH에 `0014_gate_reports.sql` migration과 이 버전의 Worker를 배포한 뒤 사용합니다. 이전 AUTH는 새 명령의 API를 제공하지 않습니다. 기존 사이트의 인증·게이트 동작은 보고 설정만으로 바뀌지 않습니다.
+
+1. 앱 소유자 또는 AUTH 운영자가 `nakwol-connect protect report-token --output-file <프로젝트 밖의 파일>`을 실행하고 기존 CLI 연결을 승인합니다. 출력에는 토큰이 나오지 않습니다. 파일 내용을 GitHub **production environment secret** `NAKWOL_GATE_REPORT_TOKEN`에 등록합니다. 이 토큰은 해당 앱 보고만 제출하며 앱 수정·로그인·사용자 권한 부여에는 사용할 수 없습니다. 90일 뒤 만료하고, 재발급하면 이전 토큰은 즉시 무효입니다.
+2. 최초 자동화 설치에서 `nakwol-connect protect automate --reports --environment production`을 사용합니다. 기존 workflow가 있으면 자동 덮어쓰지 않으므로 생성 예제와 수동 병합합니다. PR job에는 비밀값이 없습니다. 보고 job은 지정한 GitHub environment를 사용하며 배포 SHA가 기본 브랜치의 이력에 속하는지 확인합니다. environment의 승인자·브랜치 제한도 설정하세요.
+3. 개별 CI 연결은 아래처럼 실행합니다. `NAKWOL_REPORT_AUTH_ORIGIN`은 신뢰하는 AUTH origin을 CI 설정에 고정하고, 프로젝트 설정과 일치해야 합니다. 토큰을 명령행에 넣지 않습니다.
+
+```sh
+nakwol-connect protect verify --expect-runtime installed --json > deployed.json
+# 실패한 검사 결과도 보고하려면 CI의 always 조건에서 다음 단계를 실행합니다.
+nakwol-connect protect report --report deployed.json --commit "$DEPLOYED_SHA" --deployment-id "$PROVIDER_DEPLOYMENT_ID" --json
+```
+
+`/admin/apps`에서 앱을 선택하면 **서버 보호 배포 현황**에 최근 100건이 표시됩니다. 설치 버전과 실제 응답에서 관측한 버전, 실패 수, 제출 시각, commit/deployment ID가 구분됩니다. 보고가 없으면 미보고로 표시합니다. 토큰 취소는 `protect report-token --revoke`입니다.
+
+이 기록은 인증된 게시자가 제출한 진단입니다. 중앙 서버가 배포 소스나 검사 내용을 증명한 기록이 아닙니다. 사용자 접근 정책에 사용하지 않습니다. 원문 요청 경로·쿠키·토큰·사용자 ID는 전송하지 않으며, 등록된 서비스 origin과 요약만 저장합니다.
+
+## 배포 후 자동 복구
+
+[Cloudflare 복구 설정](DEPLOYMENT_ROLLBACK.md)을 먼저 완료합니다. `protect release-check --deployment-id "$PROVIDER_DEPLOYMENT_ID" --output-file release.json --json`을 **기존 배포 job의 마지막 단계**로 연결합니다. 이 명령은 현재 Cloudflare 배포 ID를 검사 전후 확인하고, 실제 익명 HTTP 2xx 노출이 확인되면 명시한 정상 배포로 롤백한 뒤 다시 검사합니다. 복구가 성공해도 실패한 릴리스를 성공 처리하지 않으므로 종료 코드는 실패입니다.
+
+첫 정상 배포를 기준으로 삼을 때는 같은 명령에 `--baseline`을 붙입니다. 결과 JSON 전체와 `deploymentId`, `expectedRuntime`을 `protection.rollback.previousVerified`에 보관합니다. 검증 대상이 바뀌지 않은 배포만 기준으로 채택하세요. 결과 JSON은 CI artifact로 보관하고, `protect report --report release.json ...`으로 복구 결과까지 보고할 수 있습니다.
+
+`CLOUDFLARE_API_TOKEN`은 해당 서비스 배포 권한만 가진 별도 환경 secret입니다. 모든 배포 경로가 같은 직렬화 규칙을 따라야 하며, CLI는 Cloudflare 콘솔에서 실행한 동시 배포를 원자적으로 잠글 수 없습니다. GitHub job에서만 lock을 잡고 콘솔 배포를 병행하는 구성은 지원하지 않습니다. 자동화 생성기는 이 강한 권한을 임의로 설치하지 않습니다. 기존 배포 job에서 명시적으로 연결해야 합니다.
+
+현재 자동 복구는 Workers/Pages 배포 트래픽만 대상으로 합니다. Vercel/Netlify, DB migration, Secret, 외부 데이터 변경은 복구하지 않습니다. 타임아웃·5xx·버전 불일치만 있는 경우 자동 롤백하지 않습니다. 정상 계정 로그인은 별도로 확인해야 합니다.
+
+## 릴리스 후보 검증
+
+`npm run test:managed`는 실제 tarball을 임시 npm 프로젝트에 설치하고, 고정 lockfile로 `npm ci` → build → 로컬 공통 gate update → TLS 검증을 유지한 로컬 HTTPS 서버의 status/전체 자산 verify를 실행합니다. 공개 npm 게시 전 후보를 검사하기 위해 이 fixture의 lockfile만 로컬 tarball을 가리킵니다. 소비자 프로젝트나 운영 설정을 수정하지 않습니다.

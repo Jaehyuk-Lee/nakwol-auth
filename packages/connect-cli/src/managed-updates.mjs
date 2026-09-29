@@ -1,6 +1,7 @@
 import { readFile, writeFile, mkdir, lstat } from 'node:fs/promises';
 import { join } from 'node:path';
 import { readProjectConfig, writeProjectConfig } from './config.mjs';
+import { reportWorkflowStep } from './report-workflow.mjs';
 import { inspectProtection } from './protection.mjs';
 const { version } = JSON.parse(await readFile(new URL('../package.json', import.meta.url), 'utf8'));
 const workflowFiles = ['.github/dependabot.yml', '.github/workflows/nakwol-gate-check.yml', '.github/workflows/nakwol-gate-deployed.yml'];
@@ -61,7 +62,7 @@ jobs:
       - run: npm run nakwol:gate
       - run: node node_modules/nakwol-connect/bin/nakwol-connect.mjs protect status --offline --json
 `;
-  const deployed = `name: NAKWOL deployed gate verification
+  let deployed = `name: NAKWOL deployed gate verification
 on:
   deployment_status:
   workflow_dispatch:
@@ -97,10 +98,24 @@ jobs:
           path: .nakwol/reports/deployed.json
           if-no-files-found: warn
 `;
+  if (options.reports) {
+    const branch = String.fromCharCode(36) + '{{ github.event.repository.default_branch }}';
+    const trusted = `      - name: Require deployed code from the trusted default branch
+        id: trusted
+        env:
+          DEFAULT_BRANCH: ${branch}
+        run: |
+          git fetch --no-tags origin "$DEFAULT_BRANCH"
+          git merge-base --is-ancestor HEAD FETCH_HEAD
+`;
+    deployed = deployed.replace('    timeout-minutes: 30', '    environment: ' + environment + String.fromCharCode(10) + '    timeout-minutes: 30');
+    deployed = deployed.replace('      - uses: actions/setup-node@v4', () => trusted + '      - uses: actions/setup-node@v4');
+    deployed = deployed.replace('      - uses: actions/upload-artifact@v4', () => reportWorkflowStep(config.authOrigin) + '      - uses: actions/upload-artifact@v4');
+  }
   await mkdir(join(root, '.github/workflows'), { recursive: true });
   for (const [i, content] of [dependabot, check, deployed].entries()) await writeFile(join(root, workflowFiles[i]), content, {flag:'wx'});
   await writeFile(join(root, 'package.json'), JSON.stringify(updated, null, 2) + '\n');
-  await writeProjectConfig(root, {...config, protection:{...config.protection, updateChannel:'managed', automation:{environment, version:1}}});
+  await writeProjectConfig(root, {...config, protection:{...config.protection, updateChannel:'managed', automation:{environment, version:2, reports:Boolean(options.reports)}}});
   return {ok:true, status:'configured-not-deployed', version, files:workflowFiles, nextSteps:[
     'Run npm install --package-lock-only --ignore-scripts; review and commit package.json, package-lock.json, .nakwol-connect.json and generated workflows.',
     'Run npm ci, npm run build and npm run nakwol:gate. Commit generated gate changes where tracked.',

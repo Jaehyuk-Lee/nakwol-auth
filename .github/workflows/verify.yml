@@ -36,6 +36,8 @@ jobs:
         run: npm install --legacy-peer-deps
       - name: Unit tests
         run: npm test
+      - name: Packaged managed gate CLI smoke
+        run: npm run test:managed
       - name: Typecheck
         run: npm run typecheck
       - name: Bundle check

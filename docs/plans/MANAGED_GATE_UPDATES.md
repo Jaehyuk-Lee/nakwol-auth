@@ -30,10 +30,12 @@ GitHub deployment_status for the configured environment triggers this workflow.
 Hosts without that event require manual dispatch of the deployed commit ref.
 Artifacts and version headers are diagnostics, not authentication credentials.
 
-## Deferred product work
-Central fleet dashboard/report ingestion, host deployment connectors, staged
-rollouts and automated rollback need a separate authenticated reporting API and
-provider-specific deployment permissions. v1 does not claim these are implemented.
+## Follow-up implementation
+App-scoped report credentials and ingestion, administrator history, and opt-in
+Cloudflare deployment verification/rollback are implemented in this candidate.
+See MANAGED_GATE_UPDATES.md and DEPLOYMENT_ROLLBACK.md for configuration,
+trust boundaries and deployment serialization. Staged traffic rollout and
+non-Cloudflare rollback are outside the current supported providers.
 
 ## Implementation/verification
 1. Version and runtime observation; preserve existing verifier contracts.

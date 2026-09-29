@@ -9,7 +9,7 @@ const SERVER_PROTECTION_GUIDANCE = `Full normative gate specification: /connect/
 
 ## Managed updates
 
-Opt-in protect automate pins a local npm CLI dependency and generates GitHub patch-update PR checks and deployment-status verification. Commit a reviewed package-lock.json. Existing automation is not overwritten. protect status distinguishes local and observed runtime versions; protect verify --expect-runtime installed requires matching runtime headers. See docs/MANAGED_GATE_UPDATES.md. No central fleet dashboard or automatic rollback is implemented.
+Opt-in protect automate pins a local npm CLI dependency and generates GitHub patch-update PR checks and deployment-status verification. Commit a reviewed package-lock.json. Existing automation is not overwritten. protect status distinguishes local and observed runtime versions; protect verify --expect-runtime installed requires matching runtime headers. See docs/MANAGED_GATE_UPDATES.md. Opt-in app-scoped reporting feeds /admin/apps; Cloudflare release-check supports explicit verified-baseline rollback under serialized deployments. See docs/DEPLOYMENT_ROLLBACK.md.
 
 ## Server protection is separate from browser authentication
 
