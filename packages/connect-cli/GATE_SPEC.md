@@ -103,3 +103,14 @@ protect verify는 열거한 주소·경로만 검증한다. 401/403 + gate heade
 ### 자동 접속 확인 안내
 
 자동 SSO 및 사이트 세션 발급 중에는 `접속 확인 중…`이라는 진행 상태를 표시한다. 확인 결과가 나오기 전에 로그인 필요 문구나 로그인 버튼을 표시하지 않는다. 로그인이 필요하다고 확인되면 로그인 안내를, 권한 부족이나 오류가 확인되면 해당 사유와 복구 수단을 표시한다. 진행 안내는 숨기지 않으며 보호 자산 제공 조건은 변경하지 않는다. 개별 서비스가 자체 작성한 로그인 화면은 해당 서비스의 적용 범위다.
+
+### Runtime version observation and managed updates
+
+Gate responses expose `X-Nakwol-Runtime` in addition to the compatible
+`X-Nakwol-Gate: v1` marker. Version observation never authorizes a request and does
+not attest all deployed source bytes. Opt-in managed builds must use the exact
+installed package matching package.json and the committed npm lockfile. A local
+update must not be reported as a verified deployment. `protect verify` preserves
+legacy behavior unless `--expect-runtime` is specified; then missing or mismatched
+versions fail verification. No secrets or authenticated content appear in version
+responses. Managed update PRs require review; no production auto-merge/rollback.
