@@ -5,3 +5,5 @@ node_modules/
 .env
 .env.*
 src/assets/nakwol-connect-cli.tgz.b64.js.txt
+
+src/assets/gate-spec.js.txt

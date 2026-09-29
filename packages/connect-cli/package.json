@@ -1,15 +1,16 @@
 {
   "name": "nakwol-connect",
-  "version": "0.6.2",
+  "version": "0.6.3",
   "description": "Official agent-first installer and management CLI for NAKWOL Connect",
   "type": "module",
   "bin": { "nakwol-connect": "bin/nakwol-connect.mjs" },
-  "files": ["bin/", "src/", "README.md", "LICENSE"],
+  "files": ["bin/", "src/", "README.md", "LICENSE", "GATE_SPEC.md"],
   "engines": { "node": ">=20" },
   "license": "MIT",
   "repository": { "type": "git", "url": "git+https://github.com/goyoung2/nakwol-auth.git", "directory": "packages/connect-cli" },
   "homepage": "https://nakwol-auth.sepsd21.workers.dev/llms.txt",
   "keywords": ["nakwol", "authentication", "oauth", "discord", "data", "openapi", "cli", "agent", "codex", "cloudflare"],
   "publishConfig": { "access": "public", "registry": "https://registry.npmjs.org/" },
+  "exports": { "./server": "./src/server/gate.mjs" },
   "private": false
 }

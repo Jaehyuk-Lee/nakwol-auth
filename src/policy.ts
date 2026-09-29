@@ -3,6 +3,8 @@ import { getUserWithMembership } from './store';
 import { getAuthLabPrivilege } from './platform-access';
 import { getRequiredRoleIds } from './role-settings';
 
+export const MEMBERSHIP_MAX_AGE_MS = 24 * 60 * 60 * 1000;
+
 export const NAKWOL_CONNECT_POLICY_VERSION = '0.2.0';
 export type ApplicationAccessPolicy = 'guest' | 'member' | 'admin' | 'lab';
 
@@ -64,6 +66,8 @@ export async function diagnoseApplicationAccess(env: Env, userId: string, client
   // Explicit service grants replace member role requirements, never AUTH operator/lab privileges.
   if ((policy === 'member' || policy === 'guest') && grant?.status === 'active') return result(true, 'MANUAL_GRANT');
   if (policy === 'member' || requireMember || requiredRoles.length > 0) {
+    const checkedAt = Number(user.membership.checked_at);
+    if (!Number.isFinite(checkedAt) || checkedAt <= 0 || checkedAt > Date.now() || Date.now() - checkedAt >= MEMBERSHIP_MAX_AGE_MS) return result(false, 'MEMBERSHIP_REFRESH_REQUIRED');
     if (!seasonRole) return result(false, 'SEASON_ROLE_NOT_CONFIGURED');
     if (!roles.includes(seasonRole)) return result(false, 'SEASON_ROLE_MISSING');
     if (!user.membership.is_member) return result(false, 'MEMBERSHIP_INACTIVE');

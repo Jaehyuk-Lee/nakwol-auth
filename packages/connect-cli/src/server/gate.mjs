@@ -59,6 +59,18 @@ async function verify(token, settings) {
   } catch { return { status: 503 }; } // AUTH outages fail closed at the request boundary.
 }
 
+// Share only checks already in flight. Never cache a completed authorization result.
+const pendingChecks = new Map();
+function verifyConcurrent(token, settings) {
+  const id = JSON.stringify([settings.authOrigin, settings.clientId, settings.accessPolicy, token]);
+  const pending = pendingChecks.get(id);
+  if (pending) return pending;
+  if (pendingChecks.size >= 256) return verify(token, settings);
+  const check = verify(token, settings).finally(() => pendingChecks.delete(id));
+  pendingChecks.set(id, check);
+  return check;
+}
+
 export async function serveProtected(request, env, settings) {
   const url = new URL(request.url);
   // Only the explicitly registered deployment origin can serve protected content.
@@ -105,13 +117,29 @@ export async function serveProtected(request, env, settings) {
   if (!['GET', 'HEAD'].includes(request.method)) return response(null, 405);
   if (url.pathname === '/__nakwol/login' || (url.pathname === '/' && (url.searchParams.has('code') || url.searchParams.has('error')))) return denied(request, 401, settings);
   if (!session) return denied(request, 401, settings);
-  const checked = await verify(session.token, settings);
+  const checked = await verifyConcurrent(session.token, settings);
   if (checked.status !== 200) return denied(request, checked.status, settings);
   const asset = await env.ASSETS.fetch(request);
   const headers = new Headers(asset.headers);
-  headers.set('Cache-Control', 'private, no-store, max-age=0');
+  // Every conditional request still passes AUTH above before an asset can return 304.
+  headers.set('Cache-Control', asset.headers.has('ETag') && [200, 304].includes(asset.status)
+    ? 'private, no-cache, max-age=0, must-revalidate' : 'private, no-store, max-age=0');
   headers.set('Vary', [headers.get('Vary'), 'Cookie'].filter(Boolean).join(', '));
   headers.set('X-Nakwol-Gate', 'v1');
   headers.set('X-Content-Type-Options', 'nosniff');
   return new Response(asset.body, { status: asset.status, headers });
+}
+
+// Public server API: hosts provide only their secret and protected content handler.
+export function createGate(settings) {
+  const config = Object.freeze({ ...settings });
+  for (const name of ['siteUrl', 'authOrigin']) {
+    const url = new URL(config[name]);
+    if (url.protocol !== 'https:' || url.username || url.password || url.pathname !== '/' || url.search || url.hash) throw new Error(`${name} must be HTTPS`);
+  }
+  if (!config.clientId || !['member', 'guest', 'admin'].includes(config.accessPolicy)) throw new Error('clientId and accessPolicy are required');
+  return (request, { sessionSecret, serveAsset }) => serveProtected(request, {
+    NAKWOL_SESSION_SECRET: sessionSecret,
+    ASSETS: { fetch: serveAsset },
+  }, config);
 }
