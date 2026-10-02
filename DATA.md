@@ -204,6 +204,17 @@ Equipment POST/PATCH에서 다음 shape의 `traits`를 지원합니다.
 
 스냅샷의 weapon/mount 객체에 생성 당시 trait의 `slot`, `trait_id`, `kind`, `name`, `description`을 함께 복사합니다. 이후 Registry 명칭이나 live 장비 trait가 변경돼도 기존 snapshot JSON을 다시 조인하거나 계산하지 않습니다.
 
+## 탐방 기록 API (개발 중, schema 4)
+
+설계: [docs/superpowers/specs/2026-10-03-nakwol-data-pull-events-design.md](docs/superpowers/specs/2026-10-03-nakwol-data-pull-events-design.md)
+
+- `GET /v1/game-accounts/:accountId/pull-events?after=&limit=` — `pulls:read`
+- `POST /v1/game-accounts/:accountId/pull-events` `{ events }` — `pulls:write`, 기기 UUID로 재전송 중복 방지
+- `POST /v1/game-accounts/:accountId/pull-events/edits` `{ ops }` — `pulls:write`, 다음 수정 번호(`rev`)로 수정·삭제, 전부 반영 또는 전부 취소
+- `GET /internal/pull-events/changes?after=&limit=` — 집계 서비스 전용, `PULL_FEED_SECRET` Bearer. 변경 전후 기록을 순서대로 제공
+
+DATA는 기록 형식과 한 기록 안의 천장 모순만 검사한다. 천장 카운터는 맹원 기기가 계산한 값이고, 공동 집계와 카드팩 카드 검증은 탐방 통계 서비스가 한다. 운영 배포 전 `PULL_FEED_SECRET`을 DATA와 통계 Worker에 secret으로 설정해야 한다.
+
 ## Registry APIs
 
 - `GET /v1/registry/summary`

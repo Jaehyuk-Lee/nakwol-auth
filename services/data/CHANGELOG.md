@@ -1,5 +1,13 @@
 # Changelog
 
+## Unreleased
+
+- Add pull (탐방) records owned by a game account: `GET/POST /v1/game-accounts/:accountId/pull-events` and `POST .../pull-events/edits`, under new scopes `pulls:read` / `pulls:write`.
+- Creates are idempotent by client UUID; edits and deletes carry the next revision number and apply all-or-nothing. A revision guard aborts an edit batch that lost a race.
+- Deletes are soft; an append-only `pull_event_changes` feed (with before/after records) backs `GET /internal/pull-events/changes`, opened only with the `PULL_FEED_SECRET` Worker secret. Hard deletes through account removal still emit a feed delete.
+- Migration 0008 rebuilds `data_application_scopes` to admit the new scopes (existing grants copied) and moves DATA to schema 4.
+- The test D1 shim now runs `batch()` as a transaction, matching D1.
+
 ## 0.9.0 - 2026-08-29
 
 - Add public `GET /openapi.json` with an OpenAPI 3.1 description of every app-facing DATA route.
