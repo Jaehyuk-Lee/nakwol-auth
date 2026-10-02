@@ -65,7 +65,7 @@ jobs:
             schema=$(curl -sS -H 'Cache-Control: no-cache' -o /tmp/data-schema.json -w '%{http_code}' "$origin/api/schema" || true)
             openapi=$(curl -sS -H 'Cache-Control: no-cache' -o /tmp/data-openapi.json -w '%{http_code}' "$origin/openapi.json" || true)
             echo "attempt=$i health=$health schema=$schema openapi=$openapi"
-            if [ "$health" = '200' ] && [ "$schema" = '200' ] && [ "$openapi" = '200' ] && grep -q '"service":"nakwol-data"' /tmp/data-health.json && grep -q '"version":"0.9.0"' /tmp/data-health.json && grep -q '"schema_version":3' /tmp/data-schema.json && grep -q '"openapi_path":"/openapi.json"' /tmp/data-schema.json && grep -q '"openapi":"3.1.0"' /tmp/data-openapi.json; then
+            if [ "$health" = '200' ] && [ "$schema" = '200' ] && [ "$openapi" = '200' ] && grep -q '"service":"nakwol-data"' /tmp/data-health.json && grep -q '"version":"0.9.0"' /tmp/data-health.json && grep -q '"schema_version":4' /tmp/data-schema.json && grep -q '"openapi_path":"/openapi.json"' /tmp/data-schema.json && grep -q '"openapi":"3.1.0"' /tmp/data-openapi.json; then
               echo 'NAKWOL_DATA_BOOTSTRAP_OK'; exit 0
             fi
             sleep 5

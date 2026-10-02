@@ -12,7 +12,8 @@ test('AUTH production deploy waits for live DATA v0.9 OpenAPI before Worker muta
   assert.ok(workflow.indexOf(wait) < workflow.indexOf(deploy), 'DATA readiness gate must run before AUTH deploy');
   assert.match(workflow, /nakwol-data\.sepsd21\.workers\.dev/);
   assert.match(workflow, /"version":"0\.9\.0"/);
-  assert.match(workflow, /"schema_version":3/);
+  // DATA may still be on schema 3 or already on 4 while both stable deploys run.
+  assert.match(workflow, /"schema_version":\(3\|4\)/);
   assert.match(workflow, /openapi\.json/);
   assert.match(workflow, /"openapi":"3\.1\.0"/);
   assert.match(workflow, /NAKWOL_DATA_V09_READY_FOR_AUTH_DEPLOY/);
