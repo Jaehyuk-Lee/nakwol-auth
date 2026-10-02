@@ -20,6 +20,10 @@ const tacticId = pathParam('tacticId', 'Registry tactic ID');
 const equipmentId = pathParam('equipmentId', 'Owned equipment instance ID');
 const deckId = pathParam('deckId', 'Owned deck ID');
 const snapshotId = pathParam('snapshotId', 'Deck snapshot ID');
+const cursorParams = (max: number) => [
+  { name: 'after', in: 'query', required: false, description: 'Cursor from the previous page; 0 or omitted starts from the beginning.', schema: { type: 'integer', minimum: 0 } },
+  { name: 'limit', in: 'query', required: false, schema: { type: 'integer', minimum: 1, maximum: max, default: Math.min(500, max) } },
+];
 
 export function buildDataOpenApi(origin = 'https://nakwol-data.sepsd21.workers.dev') {
   const server = String(origin).replace(/\/$/, '');
@@ -68,6 +72,11 @@ export function buildDataOpenApi(origin = 'https://nakwol-data.sepsd21.workers.d
         patch: scopedOperation('Patch saved deck metadata', 'decks:write', { tags: ['decks'], parameters: [accountId, deckId], requestBody: body('DeckPatchInput'), responses }),
         delete: scopedOperation('Delete a saved deck', 'decks:write', { tags: ['decks'], parameters: [accountId, deckId], responses }),
       },
+      '/v1/game-accounts/{accountId}/pull-events': {
+        get: scopedOperation('List live pull records of a game account in creation order', 'pulls:read', { tags: ['pulls'], parameters: [accountId, ...cursorParams(500)], responses }),
+        post: scopedOperation('Create pull records; retries with the same id are duplicates', 'pulls:write', { tags: ['pulls'], parameters: [accountId], requestBody: body('PullEventBatchInput'), responses: { ...responses, '409': error } }),
+      },
+      '/v1/game-accounts/{accountId}/pull-events/edits': { post: scopedOperation('Replace or delete stored pull records with the next revision number', 'pulls:write', { tags: ['pulls'], parameters: [accountId], requestBody: body('PullEditBatchInput'), responses: { ...responses, '409': error } }) },
       '/v1/deck-snapshots': { get: scopedOperation('List visible deck snapshots', 'decks:read', { tags: ['snapshots'], responses }) },
       '/v1/deck-snapshots/{snapshotId}': { get: scopedOperation('Read a visible deck snapshot', 'decks:read', { tags: ['snapshots'], parameters: [snapshotId], responses }) },
       '/v1/registry/summary': { get: authedOperation('Read Registry provenance and counts', { tags: ['registry'], responses }) },
@@ -100,6 +109,11 @@ export function buildDataOpenApi(origin = 'https://nakwol-data.sepsd21.workers.d
         DeckCompositionTacticInput: { type: 'object', required: ['slot','tactic_id'], additionalProperties: false, properties: { slot: { type: 'integer', minimum: 1, maximum: 2 }, tactic_id: { type: 'string', minLength: 1 } } },
         DeckCompositionGeneralInput: { type: 'object', required: ['position','general_id'], additionalProperties: false, properties: { position: { type: 'integer', minimum: 1, maximum: 3 }, general_id: { type: 'string', minLength: 1 }, weapon_instance_id: { type: ['string','null'] }, mount_instance_id: { type: ['string','null'] }, tactics: { type: 'array', maxItems: 2, items: { $ref: '#/components/schemas/DeckCompositionTacticInput' } } } },
         DeckCompositionInput: { type: 'object', required: ['generals'], additionalProperties: false, properties: { generals: { type: 'array', maxItems: 3, items: { $ref: '#/components/schemas/DeckCompositionGeneralInput' } } } },
+        PullCard: { type: 'object', required: ['kind','name'], additionalProperties: false, properties: { kind: { type: 'string', enum: ['officer','tactic'] }, name: { type: 'string', minLength: 1, maxLength: 40 }, owned: { type: 'boolean', description: 'Whether the card was owned before this draw.' } } },
+        PullEvent: { type: 'object', required: ['id','season','banner','observed_at','seq','draws','legendary','officers','tactics'], properties: { id: { type: 'string', format: 'uuid', description: 'Client-generated id; retries reuse it.' }, season: { type: 'integer', minimum: 1 }, banner: { type: 'string', pattern: '^[a-z0-9][a-z0-9-]{0,39}$' }, observed_at: { type: 'string', format: 'date-time' }, seq: { type: 'integer', minimum: 1, description: 'Per-banner order on the recording device.' }, rev: { type: 'integer', minimum: 1, default: 1 }, draws: { type: 'integer', enum: [1,5,20] }, legendary: { type: 'integer', minimum: 0 }, officers: { type: 'integer', minimum: 0 }, tactics: { type: 'integer', minimum: 0 }, heroic: { type: ['integer','null'], minimum: 0 }, rare: { type: ['integer','null'], minimum: 0 }, legend_positions: { type: ['array','null'], items: { type: 'integer', minimum: 1, maximum: 20 }, description: '1-based card numbers of the legends, ascending; null when unknown.' }, pity_before: { type: ['integer','null'], minimum: 0, maximum: 19, description: 'Pity counter before the batch as computed on the device; null when unknown.' }, legendary_items: { type: 'array', items: { $ref: '#/components/schemas/PullCard' } } } },
+        PullEventBatchInput: { type: 'object', required: ['events'], additionalProperties: false, properties: { events: { type: 'array', minItems: 1, maxItems: 200, items: { $ref: '#/components/schemas/PullEvent' } } } },
+        PullEditOp: { oneOf: [ { type: 'object', required: ['op','event'], additionalProperties: false, properties: { op: { const: 'replace' }, event: { $ref: '#/components/schemas/PullEvent' } } }, { type: 'object', required: ['op','id','rev'], additionalProperties: false, properties: { op: { const: 'delete' }, id: { type: 'string', format: 'uuid' }, rev: { type: 'integer', minimum: 2 } } } ] },
+        PullEditBatchInput: { type: 'object', required: ['ops'], additionalProperties: false, properties: { ops: { type: 'array', minItems: 1, maxItems: 200, items: { $ref: '#/components/schemas/PullEditOp' } } } },
         SnapshotCreateInput: { type: 'object', additionalProperties: false, properties: { visibility: { type: 'string', enum: ['alliance','public'], default: 'alliance' } } },
       },
     },

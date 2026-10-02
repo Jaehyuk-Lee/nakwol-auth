@@ -1,9 +1,10 @@
 export const DATA_SERVICE_VERSION = '0.9.0' as const;
-export const DATA_SCHEMA_VERSION = 3 as const;
+export const DATA_SCHEMA_VERSION = 4 as const;
 
 export const DATA_SCOPES = [
   'profile:read','profile:write','roster:read','roster:write',
   'equipment:read','equipment:write','decks:read','decks:write',
+  'pulls:read','pulls:write',
 ] as const;
 export type DataScope = (typeof DATA_SCOPES)[number];
 export type DataIdPrefix = 'gac' | 'eqp' | 'dek' | 'dks';
