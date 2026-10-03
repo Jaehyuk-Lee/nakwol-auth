@@ -77,6 +77,7 @@ profile:read profile:write
 roster:read roster:write
 equipment:read equipment:write
 decks:read decks:write
+pulls:read pulls:write
 ```
 
 ```bash
