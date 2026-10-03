@@ -1,4 +1,4 @@
-# NAKWOL Connect CLI 0.7.1
+# NAKWOL Connect CLI 0.7.2
 
 NAKWOL Connect CLI는 코딩 에이전트가 NAKWOL AUTH와 NAKWOL DATA를 프로젝트에 연결하고, 현재 DATA API 계약까지 자동 발견하는 공식 도구입니다.
 
@@ -145,4 +145,4 @@ const custom = await data.request('/v1/game-accounts');
 
 ## 배포
 
-현재 npm 패키지는 `nakwol-connect@0.7.1`입니다. npm 패키지는 Trusted Publishing OIDC로 배포하며 공개 패키지와 Worker fallback 배포는 항상 같은 버전을 유지합니다.
+현재 npm 패키지는 `nakwol-connect@0.7.2`입니다. npm 패키지는 Trusted Publishing OIDC로 배포하며 공개 패키지와 Worker fallback 배포는 항상 같은 버전을 유지합니다.
