@@ -25,7 +25,7 @@ async function fixture(t){
 test('release check captures baseline then automatically restores an exposed deployment without accepting failed release',async t=>{
   const f=await fixture(t);const outputFile=join(f.root,'release.json');
   const baseline=await checkRelease({...f,apiToken:'test',deploymentId:'old',outputFile,baseline:true});assert.equal(baseline.ok,true);assert.equal(baseline.deploymentId,'old');
-  f.config.protection.rollback.previousVerified={deploymentId:'old',runtimeVersion:'0.7.1',report:baseline};await writeProjectConfig(f.root,f.config);
+  f.config.protection.rollback.previousVerified={deploymentId:'old',runtimeVersion:'0.7.2',report:baseline};await writeProjectConfig(f.root,f.config);
   f.setCurrent('failed',true);
   const result=await checkRelease({...f,apiToken:'test',deploymentId:'failed',outputFile});
   assert.equal(result.ok,false);assert.equal(result.releaseAccepted,false);assert.equal(result.status,'recovery-verified');assert.equal(f.writes(),1);
