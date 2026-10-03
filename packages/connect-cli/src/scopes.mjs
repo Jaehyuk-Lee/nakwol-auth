@@ -2,6 +2,7 @@ export const DEFAULT_DATA_ORIGIN = 'https://nakwol-data.sepsd21.workers.dev';
 export const DATA_SCOPES = Object.freeze([
   'profile:read','profile:write','roster:read','roster:write',
   'equipment:read','equipment:write','decks:read','decks:write',
+  'pulls:read','pulls:write',
 ]);
 export function parseDataScopes(value) {
   const raw = Array.isArray(value) ? value : value == null || value === '' ? [] : String(value).split(',');
