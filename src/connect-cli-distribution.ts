@@ -3,7 +3,7 @@ import type { Hono } from 'hono';
 import cliPackageBase64 from './assets/nakwol-connect-cli.tgz.b64.js.txt';
 import type { Env } from './types';
 
-export const CONNECT_CLI_VERSION = '0.7.1';
+export const CONNECT_CLI_VERSION = '0.7.2';
 export const CONNECT_CLI_PACKAGE_NAME = 'nakwol-connect';
 const SERVER_PROTECTION_GUIDANCE = `Full normative gate specification: /connect/gate-spec.md (also GATE_SPEC.md in the npm package). Role-based access requires Discord verification within 24 hours.
 
