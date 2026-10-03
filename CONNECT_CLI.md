@@ -1,4 +1,4 @@
-# NAKWOL Connect CLI v0.5
+# NAKWOL Connect CLI 0.7.1
 
 NAKWOL Connect CLI는 코딩 에이전트가 NAKWOL AUTH와 NAKWOL DATA를 프로젝트에 연결하고, 현재 DATA API 계약까지 자동 발견하는 공식 도구입니다.
 
@@ -18,7 +18,7 @@ npx --yes nakwol-connect init
 npx --yes nakwol-connect doctor --json
 ```
 
-이 상태에서 페이지는 인증이 완료되기 전까지 잠기며, 중앙 NAKWOL SSO가 있으면 자동 인증하고, 세션이 없으면 로그인 흐름으로 이동합니다. 로그인했더라도 낙월 맹원이 아니면 접근이 거부됩니다.
+이 단계는 Embed 화면 가드이며 파일 직접 접근은 아직 보호되지 않습니다. 서버 보호 절차를 이어서 진행하세요. 화면은 인증이 완료되기 전까지 잠기며, 중앙 NAKWOL SSO가 있으면 자동 인증하고, 세션이 없으면 로그인 흐름으로 이동합니다. 로그인했더라도 낙월 맹원이 아니면 접근이 거부됩니다.
 
 테스트 페이지, 정적 사이트, Cloudflare Pages라는 이유만으로 공개 서비스라고 판단하지 않습니다. 공개가 제품 요구사항일 때만 개발자가 명시적으로 완화합니다.
 
@@ -26,50 +26,17 @@ npx --yes nakwol-connect doctor --json
 npx --yes nakwol-connect init --auth optional --access-policy guest
 ```
 
-## LLM/코딩 에이전트에게 시키는 말
+## LLM/코딩 에이전트 설치 안내
 
-```text
-이 프로젝트에 공식 NAKWOL Connect를 붙여줘.
+[복사용 설치·업데이트 지시문](docs/LLM_INSTALLATION.md)을 사용하세요. init은 중앙 앱과 Embed를 연결하는 단계입니다. **서버 보호 설치·사이트 배포·실제 로그인 검증까지 완료해야 합니다.**
 
-공식 npm 패키지는 nakwol-connect이고 프로젝트 루트에서
-npx --yes nakwol-connect ... 형태로 실행한다.
-Discord OAuth나 PKCE를 직접 구현하지 말고 공식 CLI와 Universal Embed를 사용해.
+- 신규 Workers/Pages 정적 사이트: [protect install](docs/CONNECT_SERVER_PROTECTION.md).
+- 기존 공식 게이트: protect update → 빌드 → 배포 → protect verify --expect-runtime installed.
+- Vercel/Netlify/자체 서버: nakwol-connect/server의 createGate를 연결합니다. 자동 생성 provider가 아닙니다.
+- 업데이트 PR·운영 버전·보고: [관리형 업데이트](docs/MANAGED_GATE_UPDATES.md).
+- 기존 앱을 보존하고 init을 반복해 clientId를 새로 만들지 않습니다.
 
-내가 이 서비스를 공개 서비스라고 명시하지 않는 한 반드시 다음 기본 정책을 유지해:
-- auth=required
-- access_policy=member
-- 인증 전에는 페이지를 공개하지 않음
-- 중앙 NAKWOL SSO가 있으면 자동 인증
-- 중앙 세션이 없으면 로그인 흐름으로 이동
-- 로그인한 비맹원은 access denied
-
-테스트 페이지나 정적 Cloudflare Pages라는 이유로 --auth optional 또는 --access-policy guest를 임의로 쓰지 마.
-공개 서비스라고 내가 명시한 경우에만 보안을 완화해.
-
-현재 서비스의 실제 production URL을 exact callback으로 등록해.
-기존 Connect 연동이 있다면 별도 OAuth 구현을 추가하지 말고 공식 Connect 방식으로 정리해.
-
-DATA가 필요하면 필요한 scope만 최소로 추가하고
-npx --yes nakwol-connect data describe --json 으로 현재 OpenAPI 계약을 먼저 읽어.
-high-level data.accounts / data.roster / data.equipment / data.decks / data.snapshots helper를 우선 사용하고,
-helper가 없는 경우에만 data.request()를 사용해.
-
-브라우저 코드나 저장소에는 Discord Client Secret, Cloudflare secret, Connect CLI token을 넣지 마.
-
-마지막에 npx --yes nakwol-connect doctor --json 을 실행해.
-설치된 설정과 Embed에서 auth=required, access_policy=member인지 직접 확인하고,
-다르면 성공이라고 보고하지 말고 먼저 수정해.
-```
-
-예를 들어 장수/전법 DATA까지 필요한 기본 보호 서비스라면 에이전트가 실행할 명령은 다음과 같습니다.
-
-```bash
-npx --yes nakwol-connect init --scopes roster:read
-npx --yes nakwol-connect data describe --json
-npx --yes nakwol-connect doctor --json
-```
-
-최초 한 번은 브라우저에서 짧은 device authorization 승인이 필요할 수 있습니다. 그 이후에는 AUTH 앱 등록/재사용, DATA scope 등록, 프로젝트 코드 설치, `.nakwol-connect.json` 작성, 검증이 자동입니다. `data describe` 자체는 공개 OpenAPI를 읽으므로 device 승인이 필요 없습니다.
+required의 init/sync/doctor는 서버 보호와 실제 차단 검증 전까지 ok:false/exit 1일 수 있습니다. 다른 오류를 무시하지 말고 JSON 결과를 읽으세요. 생성된 설정은 보존되므로 서버 설치·배포 후 다시 검사합니다.
 
 ## auth mode와 access policy
 
@@ -177,4 +144,4 @@ const custom = await data.request('/v1/game-accounts');
 
 ## 배포
 
-현재 npm 패키지는 `nakwol-connect@0.5.0`입니다. npm 패키지는 Trusted Publishing OIDC로 배포하며 공개 패키지와 Worker fallback 배포는 항상 같은 버전을 유지합니다.
+현재 npm 패키지는 `nakwol-connect@0.7.1`입니다. npm 패키지는 Trusted Publishing OIDC로 배포하며 공개 패키지와 Worker fallback 배포는 항상 같은 버전을 유지합니다.

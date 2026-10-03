@@ -292,6 +292,17 @@
           get: (snapshotId) => dataRequest(`/v1/deck-snapshots/${segment(snapshotId)}`),
           create: (accountId, deckId, input) => jsonRequest(`${deckPath(accountId, deckId)}/snapshots`, 'POST', input),
         },
+        pulls: {
+          list: (accountId, options = {}) => {
+            const query = new URLSearchParams();
+            if (options.after !== undefined) query.set('after', String(options.after));
+            if (options.limit !== undefined) query.set('limit', String(options.limit));
+            const suffix = query.toString() ? `?${query}` : '';
+            return dataRequest(`${accountPath(accountId)}/pull-events${suffix}`);
+          },
+          create: (accountId, events) => jsonRequest(`${accountPath(accountId)}/pull-events`, 'POST', { events }),
+          edit: (accountId, ops) => jsonRequest(`${accountPath(accountId)}/pull-events/edits`, 'POST', { ops }),
+        },
         registry: {
           summary: () => dataRequest('/v1/registry/summary'),
           generals: (options = {}) => dataRequest(`/v1/registry/generals${options.includeHidden ? '?include_hidden=1' : ''}`),
