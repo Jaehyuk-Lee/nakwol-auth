@@ -142,7 +142,7 @@ jobs:
                  grep -q '"default_auth":"required"' /tmp/connect-manifest && \
                  grep -q '"default_access_policy":"member"' /tmp/connect-manifest && \
                  grep -q '"name":"nakwol-connect"' /tmp/cli-manifest && \
-                 grep -q '"version":"0.7.1"' /tmp/cli-manifest && \
+                 grep -q '"version":"0.7.2"' /tmp/cli-manifest && \
                  grep -q '"default_auth":"required"' /tmp/cli-manifest && \
                  grep -q '"default_access_policy":"member"' /tmp/cli-manifest && \
                  grep -q 'init --auth optional' /tmp/cli-manifest && \
