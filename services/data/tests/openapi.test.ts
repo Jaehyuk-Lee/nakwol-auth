@@ -30,7 +30,7 @@ test('OpenAPI covers every app-facing route registered by the worker', async () 
   for (const match of source.matchAll(/app\.(get|post|put|patch|delete)\('([^']+)'/g)) {
     const method = match[1];
     const raw = match[2];
-    if (raw.startsWith('/connect/cli/')) continue;
+    if (raw.startsWith('/connect/cli/') || raw.startsWith('/internal/')) continue;
     const path = raw.replace(/:([A-Za-z0-9_]+)/g, '{$1}');
     routePairs.add(`${method.toLowerCase()} ${path}`);
   }

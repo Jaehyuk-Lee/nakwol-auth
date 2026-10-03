@@ -1,10 +1,10 @@
 # 서버 게이트 업데이트 운영
 
-## 제공 범위 (0.7.1 출시 후보)
+## 제공 범위 (0.7.1)
 
 공식 정적 Workers/Pages 설치와 루트 npm 프로젝트에 적용합니다. 중앙 AUTH,
 사이트에 설치한 패키지, 실제 사이트에 배포된 게이트는 각각 다른 상태입니다.
-이 문서의 소스 버전은 npm 게시/운영 배포 완료를 뜻하지 않습니다.
+0.7.1은 2026-09-29 [npm 게시 검증](https://github.com/goyoung2/nakwol-auth/actions/runs/36537904182)과 [AUTH 운영 배포](https://github.com/goyoung2/nakwol-auth/actions/runs/36537904188)를 완료했습니다. 각 소비자 사이트의 업데이트·배포는 별도입니다. 신규 설치와 LLM 지시문은 [설치 가이드](LLM_INSTALLATION.md)를 보세요.
 
 ## 최초 한 번 설정
 
@@ -19,8 +19,7 @@ npm run nakwol:gate
 npm exec -- nakwol-connect protect status --offline --json
 ```
 
-0.7.1 게시 전에는 이 명령을 운영 사이트에서 실행하지 마세요. 개발 시에는
-저장소의 `packages/connect-cli/bin/nakwol-connect.mjs`를 직접 사용합니다.
+위 명령은 기존 공식 설치를 관리형 업데이트로 전환합니다. 사이트를 새로 배포하거나 기존 CI를 자동 연결하는 명령은 아닙니다.
 
 생성/변경된 package.json, package-lock.json, .nakwol-connect.json, GitHub 설정,
 추적 중인 게이트 파일을 검토하여 PR로 커밋합니다. 잠금 파일 생성은 npm이
@@ -83,7 +82,7 @@ PR 실패는 병합하지 않습니다. 운영 검증 실패는 로그와 artifa
 
 결과는 CLI, GitHub Actions, 보고를 연결한 중앙 관리자 페이지에서 확인합니다.
 호스팅 연결 버튼과 단계적 트래픽 배포는 현재 제공하지 않습니다.
-출시 후보를 운영 완료나 중앙 관리 기능 완성으로 표시하지 않습니다.
+설정 파일 생성만으로 해당 사이트의 운영 연결이 완료됐다고 표시하지 않습니다. 보고·배포·복구는 실제 실행 결과로 구분합니다.
 
 ## 중앙 배포 현황 보고 (0.7.1)
 

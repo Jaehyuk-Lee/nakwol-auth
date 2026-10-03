@@ -5,6 +5,7 @@ import { handleCreateGameAccount, handleListGameAccounts } from './routes/accoun
 import { handleCreateDeck, handleDeleteDeck, handleGetDeck, handleListDecks, handlePatchDeck, handlePutDeckComposition } from './routes/decks';
 import { handleCreateEquipment, handleDeleteEquipment, handleListEquipment, handlePatchEquipment } from './routes/equipment';
 import { handleDeleteOwnedGeneral, handleListOwnedGenerals, handlePutOwnedGeneral } from './routes/generals';
+import { handleCreatePullEvents, handleEditPullEvents, handleListPullEvents, handlePullChangeFeed } from './routes/pulls';
 import { handleCreateDeckSnapshot, handleGetDeckSnapshot, handleListDeckSnapshots } from './routes/snapshots';
 import { handleDeleteOwnedTactic, handleListOwnedTactics, handlePutOwnedTactic } from './routes/tactics';
 import { handleRegistryList, handleRegistrySummary } from './routes/registry';
@@ -42,6 +43,10 @@ app.put('/v1/game-accounts/:accountId/decks/:deckId/composition', (c) => handleP
 app.get('/v1/game-accounts/:accountId/decks/:deckId', (c) => handleGetDeck(c.req.param('accountId'), c.req.param('deckId'), c.req.raw, c.env));
 app.patch('/v1/game-accounts/:accountId/decks/:deckId', (c) => handlePatchDeck(c.req.param('accountId'), c.req.param('deckId'), c.req.raw, c.env));
 app.delete('/v1/game-accounts/:accountId/decks/:deckId', (c) => handleDeleteDeck(c.req.param('accountId'), c.req.param('deckId'), c.req.raw, c.env));
+app.get('/v1/game-accounts/:accountId/pull-events', (c) => handleListPullEvents(c.req.param('accountId'), c.req.raw, c.env));
+app.post('/v1/game-accounts/:accountId/pull-events', (c) => handleCreatePullEvents(c.req.param('accountId'), c.req.raw, c.env));
+app.post('/v1/game-accounts/:accountId/pull-events/edits', (c) => handleEditPullEvents(c.req.param('accountId'), c.req.raw, c.env));
+app.get('/internal/pull-events/changes', (c) => handlePullChangeFeed(c.req.raw, c.env));
 app.get('/v1/deck-snapshots', (c) => handleListDeckSnapshots(c.req.raw, c.env));
 app.get('/v1/deck-snapshots/:snapshotId', (c) => handleGetDeckSnapshot(c.req.param('snapshotId'), c.req.raw, c.env));
 app.get('/v1/registry/summary', (c) => handleRegistrySummary(c.req.raw, c.env));

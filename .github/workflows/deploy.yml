@@ -100,7 +100,7 @@ jobs:
             if [ "$health" = '200' ] && [ "$schema" = '200' ] && [ "$openapi" = '200' ] && \
                grep -q '"service":"nakwol-data"' /tmp/required-data-health.json && \
                grep -q '"version":"0.9.0"' /tmp/required-data-health.json && \
-               grep -q '"schema_version":3' /tmp/required-data-schema.json && \
+               grep -Eq '"schema_version":(3|4)' /tmp/required-data-schema.json && \
                grep -q '"openapi_path":"/openapi.json"' /tmp/required-data-schema.json && \
                grep -q '"openapi":"3.1.0"' /tmp/required-data-openapi.json && \
                grep -q '"version":"0.9.0"' /tmp/required-data-openapi.json; then

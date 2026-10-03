@@ -1,4 +1,4 @@
-# NAKWOL Connect 0.5
+# NAKWOL Connect 0.7.1
 
 NAKWOL Connect는 낙월 서비스가 AUTH와 DATA를 공통 방식으로 연결하도록 하는 공식 integration layer입니다.
 
@@ -19,6 +19,8 @@ access_policy = member
 설정이 빠졌다고 공개되지 않습니다. 중앙 정책에 설정 행이 없거나 알 수 없는 값이 들어 있어도 `member`로 닫힙니다.
 
 ## 가장 쉬운 방법
+
+LLM에 맡길 때는 [설치·업데이트 지시문](docs/LLM_INSTALLATION.md)을 전달하세요. 아래 init은 앱/Embed 연결이며 **서버 보호 완료가 아닙니다**. [서버 게이트 설치·배포·검증](docs/CONNECT_SERVER_PROTECTION.md)을 반드시 이어서 진행합니다.
 
 ```bash
 # 기본: 로그인 필수 + 낙월 맹원 전용
@@ -98,7 +100,7 @@ window.NAKWOL_CONNECT.data
 
 `member`는 시즌3 역할 보유자만 허용합니다. `/admin/roles`에서 사이트별 추가 역할을 관리합니다. Embed의 화면 잠금만으로는 HTML·데이터 직접 접근을 막지 못하므로 보호 사이트는 서버에서 매 요청을 검사해야 합니다. [서버 접근 제어 계약과 운영 설정](docs/SERVER_GATED_AUTH.md)을 참고하세요.
 
-Web SDK stable은 `0.3.0`입니다. Universal Embed는 automatic SSO를 기본으로 사용합니다.
+Web SDK stable은 `0.3.2`입니다. Universal Embed는 automatic SSO를 기본으로 사용합니다.
 
 ### 검증된 세션 복원 (Embed v1.4)
 
@@ -121,19 +123,7 @@ window.addEventListener('nakwol-logout', () => {});
 
 ## LLM/코딩 에이전트 규칙
 
-에이전트에게 연동을 맡길 때 다음 원칙을 고정합니다.
-
-```text
-공식 CLI `nakwol-connect`를 사용한다.
-Discord OAuth/PKCE를 직접 구현하지 않는다.
-기본 설치는 `npx --yes nakwol-connect init`이다.
-사용자가 공개 서비스라고 명시하지 않는 한 auth=required, access_policy=member를 유지한다.
-`--auth optional`과 `--access-policy guest`를 임의로 사용하지 않는다.
-production callback URL을 exact URL로 등록한다.
-비밀값을 브라우저/저장소에 넣지 않는다.
-DATA는 필요한 scope만 요청하고 live OpenAPI로 계약을 확인한다.
-마지막에 `npx --yes nakwol-connect doctor --json`을 실행하고 required/member 상태를 확인한다.
-```
+[단일 복사용 지시문](docs/LLM_INSTALLATION.md)에 신규 설치·기존 업데이트·호스팅 분기·완료 조건을 모았습니다. 서버 보호 없이 Embed만 설치한 상태, 로컬 빌드만 된 상태, 배포 차단만 확인하고 실제 로그인을 검사하지 않은 상태는 구분해서 보고합니다.
 
 ## High-level DATA SDK
 

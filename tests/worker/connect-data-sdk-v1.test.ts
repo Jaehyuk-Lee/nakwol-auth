@@ -109,6 +109,9 @@ function expectNamespace(data: any) {
     data.snapshots?.list,
     data.snapshots?.get,
     data.snapshots?.create,
+    data.pulls?.list,
+    data.pulls?.create,
+    data.pulls?.edit,
     data.registry?.summary,
     data.registry?.generals,
     data.registry?.tactics,
@@ -197,6 +200,10 @@ test('high-level Data SDK maps account, roster, equipment, deck and snapshot met
   await expectRequest(runtime, () => data.decks.remove(accountId, deckId), `/v1/game-accounts/${account}/decks/${deck}`, 'DELETE');
 
   await expectRequest(runtime, () => data.snapshots.list(), '/v1/deck-snapshots');
+  await expectRequest(runtime, () => data.pulls.list(accountId), `/v1/game-accounts/${account}/pull-events`);
+  await expectRequest(runtime, () => data.pulls.list(accountId, { after: 12, limit: 50 }), `/v1/game-accounts/${account}/pull-events?after=12&limit=50`);
+  await expectRequest(runtime, () => data.pulls.create(accountId, [{ id: 'p1' }]), `/v1/game-accounts/${account}/pull-events`, 'POST', { events: [{ id: 'p1' }] });
+  await expectRequest(runtime, () => data.pulls.edit(accountId, [{ op: 'delete', id: 'p1', rev: 2 }]), `/v1/game-accounts/${account}/pull-events/edits`, 'POST', { ops: [{ op: 'delete', id: 'p1', rev: 2 }] });
   await expectRequest(runtime, () => data.snapshots.get(snapshotId), `/v1/deck-snapshots/${snapshot}`);
   await expectRequest(runtime, () => data.snapshots.create(accountId, deckId, { visibility: 'alliance' }), `/v1/game-accounts/${account}/decks/${deck}/snapshots`, 'POST', { visibility: 'alliance' });
 });

@@ -14,4 +14,4 @@ class PreparedStatement {
   async all<T>():Promise<{results:T[]}>{return {results:this.db.prepare(this.sql).all() as T[]};}
   async run():Promise<unknown>{return this.db.prepare(this.sql).run();}
 }
-export function createSqliteD1(sql:string){ const db=new DatabaseSync(':memory:'); db.exec(sql); return {raw:db,prepare(query:string){return new PreparedStatement(db,query);},async batch(statements:Array<{run():Promise<unknown>}>){return Promise.all(statements.map((s)=>s.run()));}}; }
+export function createSqliteD1(sql:string){ const db=new DatabaseSync(':memory:'); db.exec(sql); return {raw:db,prepare(query:string){return new PreparedStatement(db,query);},async batch(statements:Array<{run():Promise<unknown>}>){db.exec('BEGIN');try{const results=[];for(const s of statements)results.push(await s.run());db.exec('COMMIT');return results;}catch(error){db.exec('ROLLBACK');throw error;}}}; }
